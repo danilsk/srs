@@ -94,7 +94,7 @@ async function tts(deck, text, signal) {
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'srs' },
     body: JSON.stringify({
       model: prefs.get('ttsModel'), voice: deck.tts?.voice || 'Iapetus',
-      input: `${ttsGuidance(deck)}\n\n${text}`, response_format: 'pcm',
+      input: `${ttsGuidance(deck)}\n\n"${text.replace(/"/g, "'")}"`, response_format: 'pcm',
     }),
   });
   const type = r.headers.get('content-type') || '';
