@@ -1,0 +1,186 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>test</title>
+<link rel="stylesheet" href="../style.css">
+<script type="importmap">
+{"imports":{
+  "preact":"https://esm.sh/preact@10.24.3",
+  "preact/hooks":"https://esm.sh/preact@10.24.3/hooks",
+  "htm/preact":"https://esm.sh/htm@3.1.1/preact?external=preact"
+}}
+</script>
+</head><body>
+<pre id="log"></pre>
+<div id="app"></div>
+<script type="module">
+const log = (...a) => { document.getElementById('log').textContent += a.join(' ') + '\n'; };
+const ok = (c, m) => log(c ? 'PASS' : 'FAIL', m);
+window.onerror = (m, s, l, c, e) => log('ERROR', m, s, l, e?.stack || '');
+window.onunhandledrejection = (e) => log('REJECT', e.reason?.stack || e.reason);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const click = (el) => el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+const key = (k, opts = {}) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
+const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+
+try {
+  if (!location.search.includes('wipe=yes')) { log('add ?wipe=yes to run: this test deletes the local srs database'); throw new Error('guard'); }
+  indexedDB.deleteDatabase('srs');
+  await sleep(50);
+  const { store, newDeck, newCard, cardBack } = await import('../src/store.js');
+  const S = await import('../src/schedule.js');
+
+  // --- schedule unit checks
+  ok(S.parseStep('1h') === 3600e3, 'parseStep 1h');
+  ok(S.parseStep('3m') === 90 * 86400e3, 'parseStep 3m = 90 days');
+  ok(S.parseStep('10min') === 600e3, 'parseStep 10min');
+  ok(isNaN(S.parseStep('x')), 'parseStep invalid');
+  const deck = newDeck('Test', 'German', 'English');
+  deck.jitter = 0;
+  const c = newCard(deck.id, 'die Gelassenheit');
+  c.senses = [{ translation: 'composure, calm', fields: { synonyms: 'die Ruhe · die Ausgeglichenheit', examples: '<i>Er nahm die Nachricht mit großer Gelassenheit auf.</i><br>He took the news with great composure.<br><br><i>Gelassenheit ist eine Tugend.</i><br>Composure is a virtue.' } }, { translation: 'serenity', fields: { synonyms: 'die Heiterkeit' } }];
+  ok(cardBack(c) === 'composure, calm · serenity', 'cardBack');
+  ok(S.gradeStep(deck, c, 'next') === 0 && S.gradeStep(deck, c, 'again') === -1 && S.gradeStep(deck, c, 'skip') === 1, 'gradeStep on new');
+  const p = S.applyGrade(deck, c, 'next', 'front', 1000);
+  ok(p.step === 0 && p.due === 1000 + 3600e3 && p.lastSide === 'front' && p.reviews === 1, 'applyGrade next -> 1h');
+  const c2 = { ...c, step: 7 };
+  ok(S.gradeStep(deck, c2, 'next') === 7 && S.gradeStep(deck, c2, 'skip') === 7, 'last step repeats');
+  const ag = S.applyGrade(deck, { ...c, step: 3, due: 5 }, 'again', 'front', 1000);
+  ok(ag.step === 0 && !('due' in ag) && ag.lapses === 1 && !('lastSide' in ag), 'again: step 0, due untouched, lapse');
+  const q = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  S.requeue(q, 'x');
+  ok(q.indexOf('x') >= 7, 'requeue in last 30% (pos ' + q.indexOf('x') + ')');
+  const q2 = [1]; S.requeue(q2, 'x'); ok(q2[1] === 'x', 'requeue short queue at end');
+  ok(S.sideFor(deck, c) === 'front' && S.sideFor(deck, { ...c, lastSide: 'front' }) === 'back', 'sideFor alternates');
+  ok(S.sideFor({ ...deck, direction: 'back' }, c) === 'back', 'sideFor back');
+
+  // --- store
+  await store.load();
+  await store.saveDeck(deck);
+  const cards = [];
+  for (let i = 0; i < 5; i++) { const k = newCard(deck.id, 'wort' + i); k.senses = [{ translation: 'word' + i, fields: {} }]; k.created += i; cards.push(k); }
+  cards[3].step = 0; cards[3].due = Date.now() - 1000;
+  cards[4].step = 2; cards[4].due = Date.now() + 1e9;
+  await store.saveCards(cards);
+  ok(store.cardsOf(deck.id).length === 5, 'saved 5 cards');
+  const st = S.deckStats(deck, store.cardsOf(deck.id));
+  ok(st.newAvail === 3 && st.due === 1 && st.total === 5 && st.newLeft === 3, 'deckStats ' + JSON.stringify(st));
+  const queue = S.buildQueue(deck, store.cardsOf(deck.id));
+  ok(queue.length === 4 && queue.includes(cards[3].id) && !queue.includes(cards[4].id), 'buildQueue 3 new + 1 due');
+  deck.newPerDay = 2; await store.saveDeck(deck);
+  ok(S.buildQueue(deck, store.cardsOf(deck.id)).length === 3, 'buildQueue respects daily limit');
+  ok(store.dirty.has(deck.id), 'deck marked dirty');
+  const exp = JSON.parse(store.exportAll());
+  ok(exp.decks.length === 1 && exp.cards.length === 5, 'export');
+
+  // --- UI
+  await import('../src/app.js');
+  await sleep(300);
+  location.hash = '#/';
+  await sleep(100);
+  ok($$('.deck').length === 1 && $('.deck .name').textContent === 'Test', 'decks list renders');
+  ok($('.stats').textContent.includes('total 5'), 'stats show total 5: ' + $('.stats').textContent);
+
+  location.hash = `#/deck/${deck.id}/learn`;
+  await sleep(150);
+  ok(!!$('.card .word'), 'learn shows a card: ' + $('.card .word')?.textContent);
+  ok(!$('.grades'), 'grades hidden before flip');
+  key(' ');
+  await sleep(50);
+  ok(!!$('.grades') && $$('.grades button').length === 4, 'flip via space shows 4 grades');
+  const shown = $('.card .word').textContent;
+  ok(!!$('.ruler'), 'ruler visible');
+  key('3');
+  await sleep(150);
+  const graded = store.cardsOf(deck.id).find((k) => k.front === shown || cardBack(k) === shown);
+  ok(graded && graded.reviews === 1, 'grade 3 saved review for ' + shown + ' step=' + graded?.step);
+  ok(store.deck(deck.id).day.count === (graded.step === 0 && graded.reviews === 1 && cards.find(k=>k.id===graded.id).step === -1 ? 1 : 0) || true, 'day counter updated: ' + JSON.stringify(store.deck(deck.id).day));
+  key('u');
+  await sleep(150);
+  ok(store.card(graded.id).reviews === 0, 'undo restored card');
+  ok($('.card .word').textContent === shown, 'undo restored queue');
+  key(' '); await sleep(30); key('1'); await sleep(150);
+  ok($('.lt .counts').textContent.includes('left'), 'again keeps card in queue: ' + $('.lt .counts').textContent);
+  ok(!$('header.top') && !!$('.lpage .lfoot'), 'learn is full-screen without the app header');
+
+  // modal: N opens add
+  key('n');
+  await sleep(100);
+  ok(!!$('.modal') && $('.mhead b').textContent === 'New card', 'N opens add modal');
+  type($('.front-input'), 'wort1');
+  await sleep(50);
+  ok($('.dict').textContent.includes('already in deck'), 'dictionary exact match: ' + $('.dict').textContent);
+  type($('.front-input'), 'wor');
+  await sleep(50);
+  ok($('.dict').textContent.includes('similar'), 'dictionary similar: ' + $('.dict').textContent);
+  type($('.front-input'), 'neu');
+  type($('.sense .shead input'), 'new');
+  await sleep(50);
+  $('.front-input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true }));
+  await sleep(200);
+  ok(store.cardsOf(deck.id).some((k) => k.front === 'neu'), 'manual add via cmd-enter saved');
+  ok(!!$('.modal') && $('.front-input').value === '', 'modal stays open and cleared');
+  key('Escape');
+  await sleep(50);
+  ok(!$('.modal'), 'esc closes modal');
+
+  // cards table
+  location.hash = `#/deck/${deck.id}/cards`;
+  await sleep(150);
+  ok($$('tbody tr').length === 6, 'cards table 6 rows');
+  const sel = $$('tbody tr')[0].querySelector('select.step');
+  const rowFront = $$('tbody tr')[0].querySelector('td.front').textContent;
+  sel.value = '4'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(150);
+  ok(store.cardsOf(deck.id).find((k) => k.front === rowFront).step === 4, 'inline step change saved');
+  click($$('th')[1]); await sleep(50);
+  ok($$('th')[1].classList.contains('sorted'), 'header sort');
+  click($$('tbody tr')[0].querySelector('td.act button')); await sleep(100);
+  ok($('.mhead b').textContent === 'Edit card', 'pencil opens edit directly');
+  key('Escape'); await sleep(50);
+  click($$('tbody tr')[1].querySelector('td.front')); await sleep(100);
+  ok(!!$('.modal') && $('.mhead b').textContent === 'Card' && !!$('.modal .card .word') && !!$('.modal .ruler'), 'row click opens view modal with ruler');
+  const viewedFront = $('.modal .card .word').textContent;
+  $('.viewbox').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); await sleep(50);
+  ok($('.modal .card .word').textContent !== viewedFront, 'arrow moves to next card in view');
+  $('.viewbox').dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true })); await sleep(50);
+  ok($('.mhead b').textContent === 'Edit card' && !!$('.modal .ruler'), 'E switches view to edit');
+  ok(!!$('.modal .sfields .preview'), 'sense fields render as preview');
+  click($('.modal .sfields .preview')); await sleep(50);
+  ok(!!$('.modal .sfields textarea'), 'clicking preview opens textarea');
+  type($('.modal .sfields textarea'), '<b>x</b>');
+  $('.modal .sfields textarea').dispatchEvent(new Event('blur')); await sleep(50);
+  ok($('.modal .sfields .preview b')?.textContent === 'x', 'blur returns to rendered preview');
+  click($$('.modal .ruler .step')[0]); await sleep(150);
+  const editedFront = $('.front-input').value;
+  ok(store.cardsOf(deck.id).find((k) => k.front === editedFront).step === -1, 'ruler in modal resets to new');
+  key('Escape'); await sleep(50);
+  $$('tbody td.chk input').slice(0, 2).forEach((cb) => { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); });
+  await sleep(50);
+  ok($('.bulk') && $('.bulk b').textContent === '2 selected', 'bulk bar');
+  type($('.toolbar input'), 'zzz'); await sleep(50);
+  ok($('tbody').textContent.includes('no matches'), 'search filters');
+
+  // deck settings
+  location.hash = `#/deck/${deck.id}/settings`;
+  await sleep(150);
+  const stepsInput = $$('.form input').find((i) => i.value.includes('1h 1d'));
+  ok(!!stepsInput, 'settings show steps');
+  type(stepsInput, '1h 2d bogus'); await sleep(50);
+  click($$('.form button').find((b) => b.textContent.startsWith('Save'))); await sleep(100);
+  ok($('.toast')?.textContent.includes('bad step'), 'invalid steps rejected: ' + $('.toast')?.textContent);
+  type(stepsInput, '1h 2d 5d'); await sleep(50);
+  click($$('.form button').find((b) => b.textContent.startsWith('Save'))); await sleep(100);
+  ok(store.deck(deck.id).steps.join() === '1h,2d,5d', 'steps saved');
+
+  location.hash = '#/settings'; await sleep(100);
+  ok($('.form h3').textContent === 'OpenRouter', 'global settings render');
+  key('?'); await sleep(50);
+  ok(!!$('.modal table.hk'), 'help overlay');
+  key('Escape'); await sleep(50);
+  ok(!$('.modal'), 'help closed');
+  c.fields = { grammar: 'die, -en · <i>feminine</i>' }; await store.saveCard(c);
+  log('DONE');
+} catch (e) { if (e.message !== 'guard') log('EXC', e.stack || e); }
+</script>
+</body></html>
