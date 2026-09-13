@@ -84,7 +84,7 @@ main{max-width:1100px;margin:0 auto;padding:22px 20px 60px}
 .card .step-tag{position:absolute;bottom:10px;right:14px;font-size:11px;color:var(--muted)}
 .card .audio{position:absolute;top:10px;right:12px}
 .card .word{font-size:34px;font-weight:600;text-align:left;letter-spacing:-.01em;overflow-wrap:anywhere}
-.card .word .p+.p{margin-top:14px}
+.card .word .p+.p{margin-top:6px}
 .card .answer{margin-top:28px;padding-top:24px;border-top:1px dashed var(--line)}
 .card .answer .word{font-size:26px;font-weight:500}
 .card.mini{padding:36px 22px 22px;min-height:0}
