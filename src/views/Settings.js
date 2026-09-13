@@ -4,6 +4,7 @@ import { db } from '../db.js';
 import { prefs, DEFAULTS } from '../prefs.js';
 import { testKey } from '../llm.js';
 import { fmtRel, fmtTime, download, bus } from '../util.js';
+import { canInstall, isInstalled, installApp } from '../pwa.js';
 
 export function Settings() {
   const sync = useSync();
@@ -13,6 +14,11 @@ export function Settings() {
   const bind = (k) => ({ value: prefs.get(k), onInput: (e) => { prefs.set(k, e.target.value.trim()); force((n) => n + 1); } });
 
   useEffect(() => { if (sync.status === 'synced') sync.info().then(setInfo).catch(() => {}); }, [sync.status]);
+  useEffect(() => {
+    const update = () => force((n) => n + 1);
+    addEventListener('srs-install-change', update);
+    return () => removeEventListener('srs-install-change', update);
+  }, []);
 
   const runTest = async () => {
     setTest('…');
@@ -72,6 +78,14 @@ export function Settings() {
       <span class="spacer"></span>
       <button class="ghost danger" onClick=${wipe}>Wipe local data</button>
     </div>
+
+    <h3>Install app</h3>
+    ${isInstalled() ? html`<p class="small muted">Running as an installed app.</p>` : html`
+      ${canInstall() && html`<button class="primary" onClick=${() => installApp().catch(bus.error)}>Install srs</button>`}
+      <p class="small muted">iPhone / iPad: in Safari, open Share → Add to Home Screen → Open as Web App → Add.</p>
+      <p class="small muted">Android: open the browser menu → Install app or Add to Home screen.</p>
+    `}
+    <p class="small muted">After the first online load finishes, saved cards are available offline. Generation and Google Drive sync need an internet connection.</p>
 
     <h3>Hotkeys</h3>
     <table class="hk small">${HOTKEYS.map(([k, d]) => html`<tr key=${d}><td><kbd>${k}</kbd></td><td class="muted">${d}</td></tr>`)}</table>

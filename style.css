@@ -11,6 +11,7 @@
 }}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--fg);font:100%/var(--leading-body) -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
+body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
 button:hover{background:var(--soft2)}
@@ -229,6 +230,14 @@ select.step.last{background:transparent;border-color:var(--line)}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:20;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:90vw}
 .toast.error{background:var(--warn);color:#fff}
 
+@media(display-mode:standalone){
+  .top{padding-top:calc(10px + env(safe-area-inset-top))}
+  .lt{padding-top:calc(8px + env(safe-area-inset-top))}
+  main{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
+  .overlay{padding-top:max(6vh, env(safe-area-inset-top));padding-bottom:max(6vh, env(safe-area-inset-bottom))}
+  .toast{bottom:calc(20px + env(safe-area-inset-bottom))}
+}
+
 @media(max-width:760px){
   .deck{grid-template-columns:1fr;gap:8px}
   .fields{grid-template-columns:1fr}
@@ -238,6 +247,7 @@ select.step.last{background:transparent;border-color:var(--line)}
   .hk kbd{display:inline}
   .mhead .small{display:none}
   .lt{gap:10px;padding:8px 12px}
+  @media(display-mode:standalone){.lt{padding-top:calc(8px + env(safe-area-inset-top))}}
   .lt .counts{gap:8px}
   .lt .sync{display:none}
   .lbody{padding:14px 12px}

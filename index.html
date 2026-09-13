@@ -4,17 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>srs</title>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131313" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="srs">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">
 {"imports":{
-  "preact":"https://esm.sh/preact@10.24.3",
-  "preact/hooks":"https://esm.sh/preact@10.24.3/hooks",
-  "htm/preact":"https://esm.sh/htm@3.1.1/preact?external=preact"
+  "preact":"https://esm.sh/preact@10.24.3/es2022/preact.mjs",
+  "preact/hooks":"https://esm.sh/preact@10.24.3/es2022/hooks.mjs",
+  "htm/preact":"https://esm.sh/htm@3.1.1/X-ZXByZWFjdA/es2022/preact.mjs"
 }}
 </script>
 </head>
 <body>
 <div id="app"></div>
+<script type="module" src="src/pwa.js"></script>
 <script type="module" src="src/app.js"></script>
 </body>
 </html>

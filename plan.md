@@ -102,16 +102,23 @@ DayCounter { deckId, date, newShown }
 
 ## Status
 
-Phases 1–7 implemented. Files: `index.html`, `style.css`, `src/` (app, store, db, schedule, llm, drive, audio, ui, prefs, util, views/). `blueprint.html` is the static mock the UI was reviewed on. Not done: PWA/offline manifest.
+Phases 1–7 implemented. Files: `index.html`, `style.css`, `src/` (app, store, db, schedule, llm, drive, audio, ui, prefs, util, views/). `blueprint.html` is the static mock the UI was reviewed on. PWA installation and offline app-shell caching are implemented.
 
 ## Dev
 
 ```
 ./start.sh                           # serves the repo on 8123 and opens it (port: ./start.sh 9000)
 node dev/cdp.mjs "http://127.0.0.1:8123/dev/test.html?wipe=yes" "#/,#/deck/{deck}/learn|space"
+node dev/pwa-test.mjs http://127.0.0.1:8123/  # isolated Chrome: installability, mobile layout, offline study
 ```
 `dev/test.html` is a headless smoke test (schedule, store, UI); it wipes the local database, hence the `wipe=yes` guard. The second argument to `cdp.mjs` is an optional list of screens to screenshot.
 
 ## Deploy
 
 Push to GitHub, enable Pages from the repo root. Then create a Google OAuth client (Web application) with the Pages origin as an authorized JavaScript origin, enable the Drive API, and paste the client ID in Settings.
+
+The app is installable over HTTPS (including GitHub Pages), with relative paths supporting `/srs/` hosting. Android: use Install srs in Settings when available, or the browser's install menu. iPhone/iPad: Safari → Share → Add to Home Screen → Open as Web App → Add.
+
+The service worker caches the complete app shell and pinned UI dependencies on the first successful online installation. Saved local cards and audio can then be used offline; generation, sign-in, and Drive sync still need the network. A new device needs a Drive sync or JSON import to obtain existing cards; the API key is entered separately in that device's Settings.
+
+When deploying HTML/CSS/JS/icon changes, bump `CACHE` in `sw.js`. Updates install in the background and activate once all old app windows close; they do not reload an open editor. Card data stays in IndexedDB. Regenerate icons with `uv run --with pillow dev/generate-icons.py`.
