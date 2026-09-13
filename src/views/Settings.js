@@ -46,7 +46,7 @@ export function Settings() {
     <div class="row"><button onClick=${runTest} disabled=${!prefs.get('orKey')}>Test ⚡</button>${test && html`<span class="muted small">${test}</span>`}</div>
 
     <h3>Google Drive</h3>
-    <div class="f"><label>OAuth client ID<${Q} text=${`Google Cloud console → APIs & Services → enable "Google Drive API" → Credentials → OAuth client ID, type Web application, authorized JavaScript origin = ${location.origin}. Scope used: drive.file (only files this app creates).`} /></label>
+    <div class="f"><label>OAuth client ID<${Q} text=${`Google Cloud console → Google Auth Platform → Clients → Create client, type Web application, authorized JavaScript origin = ${location.origin}. Drive API must be enabled. Scope used: drive.file (only files this app creates).`} /></label>
       <input placeholder="…apps.googleusercontent.com" ...${bind('gClientId')} disabled=${sync.enabled} /></div>
     ${!sync.enabled
       ? html`<div class="row"><button class="primary" disabled=${!prefs.get('gClientId')} onClick=${connect}>Connect Google Drive</button></div>`

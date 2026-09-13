@@ -4,7 +4,7 @@ export const DEFAULTS = {
   textModel: 'openai/gpt-5.6-luna',
   ttsModel: 'google/gemini-3.1-flash-tts-preview',
   orKey: '',
-  gClientId: '',
+  gClientId: '231977151347-rkp6ttr0imafmv00kae531cpmj49tto9.apps.googleusercontent.com',
   driveOn: '',
 };
 
