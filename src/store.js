@@ -1,5 +1,6 @@
 import { db } from './db.js';
-import { uid, now, todayKey } from './util.js';
+import { parseStep } from './schedule.js';
+import { uid, now, todayKey, clamp } from './util.js';
 
 export const DEFAULT_PROMPT =
 `You are a {{target}} → {{native}} dictionary for a language learner. Entry: "{{front}}".
@@ -44,17 +45,67 @@ export function newCard(deckId, front = '') {
 
 export const cardBack = (card) => card.senses.map((s) => s.translation).filter(Boolean).join(' · ');
 
+// Every record that did not come from newDeck/newCard in this tab (IndexedDB, a Drive pull,
+// an import) goes through these: one missing field otherwise throws mid-render.
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const numOr = (v, dflt) => (Number.isFinite(v) ? v : dflt);
+const strOr = (v, dflt) => (typeof v === 'string' && v.trim() ? v : dflt);
+
+export function normDeck(d = {}) {
+  const base = newDeck(strOr(d.name, 'Deck'), strOr(d.targetLang, ''), strOr(d.nativeLang, ''));
+  const steps = (Array.isArray(d.steps) ? d.steps : []).filter((s) => parseStep(s) > 0);
+  const fields = (v, dflt) => (Array.isArray(v) ? v : dflt).filter((f) => isObj(f) && f.key);
+  return {
+    ...base, ...d,
+    id: strOr(d.id, base.id),
+    name: base.name, targetLang: base.targetLang, nativeLang: base.nativeLang,
+    steps: steps.length ? steps : base.steps,
+    senseFields: fields(d.senseFields, base.senseFields),
+    cardFields: fields(d.cardFields, base.cardFields),
+    tts: { ...base.tts, ...(isObj(d.tts) ? d.tts : null) },
+    day: isObj(d.day) && d.day.date ? d.day : base.day,
+    prompt: strOr(d.prompt, base.prompt),
+    jitter: clamp(numOr(d.jitter, base.jitter), 0, 0.9),
+    newPerDay: Math.max(0, numOr(d.newPerDay, base.newPerDay)),
+    sensesMin: numOr(d.sensesMin, base.sensesMin), sensesMax: numOr(d.sensesMax, base.sensesMax),
+    examplesMin: numOr(d.examplesMin, base.examplesMin), examplesMax: numOr(d.examplesMax, base.examplesMax),
+    created: numOr(d.created, base.created), updated: numOr(d.updated, base.updated),
+  };
+}
+
+export function normCard(c = {}, deckId) {
+  const base = newCard(deckId || c.deckId || '');
+  const senses = (Array.isArray(c.senses) ? c.senses : []).map((s) => ({
+    ...(isObj(s) ? s : null),
+    translation: typeof s?.translation === 'string' ? s.translation : '',
+    fields: isObj(s?.fields) ? s.fields : {},
+  }));
+  return {
+    ...base, ...c,
+    id: strOr(c.id, base.id),
+    deckId: base.deckId,
+    front: typeof c.front === 'string' ? c.front : '',
+    senses: senses.length ? senses : base.senses,
+    fields: isObj(c.fields) ? c.fields : {},
+    audio: isObj(c.audio) && c.audio.key ? c.audio : null,
+    step: Number.isInteger(c.step) ? c.step : -1,
+    due: numOr(c.due, null), lastReview: numOr(c.lastReview, null),
+    reviews: Math.max(0, numOr(c.reviews, 0)), lapses: Math.max(0, numOr(c.lapses, 0)),
+    created: numOr(c.created, base.created), updated: numOr(c.updated, base.updated),
+  };
+}
+
 const listeners = new Set();
 const emit = () => { for (const fn of listeners) fn(); };
 
 export const store = {
   decks: [], cards: [], ready: false,
-  dirty: new Set(), deleted: new Set(),
+  dirty: new Set(), deleted: new Set(), revs: new Map(),
   onDirty: null, onAudioDeleted: null,
 
   async load() {
-    this.decks = (await db.all('decks')).sort((a, b) => a.created - b.created);
-    this.cards = await db.all('cards');
+    this.decks = (await db.all('decks')).map((d) => normDeck(d)).sort((a, b) => a.created - b.created);
+    this.cards = (await db.all('cards')).map((c) => normCard(c));
     this.dirty = new Set(await db.meta.get('dirty', []));
     this.deleted = new Set(await db.meta.get('deleted', []));
     for (const d of this.decks) {
@@ -70,7 +121,9 @@ export const store = {
   card: (id) => store.cards.find((c) => c.id === id),
   cardsOf: (deckId) => store.cards.filter((c) => c.deckId === deckId),
 
+  rev(deckId) { return this.revs.get(deckId) || 0; },
   async markDirty(deckId) {
+    this.revs.set(deckId, this.rev(deckId) + 1);
     this.dirty.add(deckId);
     await db.meta.set('dirty', [...this.dirty]);
     this.onDirty?.();
@@ -143,6 +196,8 @@ export const store = {
 
   // From sync: replace a deck and its cards wholesale without marking dirty.
   async replaceDeck(deck, cards) {
+    deck = normDeck(deck);
+    cards = (Array.isArray(cards) ? cards : []).map((c) => normCard(c, deck.id));
     const old = this.cardsOf(deck.id);
     this.decks = this.decks.filter((d) => d.id !== deck.id).concat(deck).sort((a, b) => a.created - b.created);
     this.cards = this.cards.filter((c) => c.deckId !== deck.id).concat(cards);
@@ -169,12 +224,12 @@ export const store = {
   async importJson(text) {
     const data = JSON.parse(text);
     if (!Array.isArray(data.decks) || !Array.isArray(data.cards)) throw new Error('not an srs export');
-    for (const d of data.decks) await this.saveDeck({ ...newDeck(d.name, d.targetLang, d.nativeLang), ...d });
+    for (const d of data.decks) await this.saveDeck(normDeck(d));
     const byDeck = new Map();
     for (const c of data.cards) {
       if (!this.deck(c.deckId)) continue;
       if (!byDeck.has(c.deckId)) byDeck.set(c.deckId, []);
-      byDeck.get(c.deckId).push({ ...newCard(c.deckId), ...c });
+      byDeck.get(c.deckId).push(normCard(c));
     }
     for (const cards of byDeck.values()) await this.saveCards(cards);
     return { decks: data.decks.length, cards: data.cards.length };

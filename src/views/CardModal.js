@@ -99,6 +99,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
   const save = async () => {
     const front = draft.front.trim();
     if (!front) return setErr('front is empty');
+    if (mode === 'add' && exact) { openExisting(exact); return bus.toast(`already in deck — opened “${exact.front}”`); }
     const senses = draft.senses.map((s) => ({ ...s, translation: s.translation.trim() }))
       .filter((s) => s.translation || Object.values(s.fields || {}).some((v) => v && v.trim()));
     if (!senses.length) return setErr('add at least one translation');

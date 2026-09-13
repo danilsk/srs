@@ -100,16 +100,17 @@ function multipart(metadata, blob) {
 }
 
 async function upload(name, blob, existingId, parent, keepalive = false) {
-  let r;
   if (existingId) {
-    r = await gfetch(`${UPLOAD}/files/${existingId}?uploadType=media&fields=id,modifiedTime`, {
-      method: 'PATCH', headers: { 'Content-Type': blob.type }, body: blob, keepalive,
-    });
-  } else {
-    r = await gfetch(`${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`, {
-      method: 'POST', ...multipart({ name, parents: [parent] }, blob), keepalive,
-    });
+    try {
+      const r = await gfetch(`${UPLOAD}/files/${existingId}?uploadType=media&fields=id,modifiedTime`, {
+        method: 'PATCH', headers: { 'Content-Type': blob.type }, body: blob, keepalive,
+      });
+      return r.json();
+    } catch (e) { if (!/404/.test(e.message)) throw e; }
   }
+  const r = await gfetch(`${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`, {
+    method: 'POST', ...multipart({ name, parents: [parent] }, blob), keepalive,
+  });
   return r.json();
 }
 
@@ -215,6 +216,7 @@ async function push() {
   try {
     setStatus('pushing');
     for (const deckId of [...store.dirty]) {
+      const rev = store.rev(deckId);
       const deck = store.deck(deckId);
       if (!deck) { await store.clearDirty(deckId); continue; }
       const cards = store.cardsOf(deckId);
@@ -229,7 +231,8 @@ async function push() {
       const name = fname(deckId);
       const r = await upload(name, jsonBlob({ deck, cards }), meta.files[name]?.id, meta.folderId);
       meta.files[name] = { id: r.id, modifiedTime: r.modifiedTime };
-      await store.clearDirty(deckId);
+      // A save during the upload is not in the snapshot we just sent: keep the deck dirty.
+      if (store.rev(deckId) === rev) await store.clearDirty(deckId);
     }
     for (const id of [...store.deleted]) {
       const f = meta.files[fname(id)];
@@ -247,6 +250,15 @@ async function push() {
 }
 
 const pushSoon = debounce(() => push().catch(handleErr), 5000);
+
+async function onHide() {
+  if (!sync.enabled || !holding()) return;
+  stopHeartbeat();
+  if (store.dirty.size) { pushSoon.cancel(); await push().catch(handleErr); }
+  if (!holding() || store.dirty.size) return;
+  await writeLock(true, true).catch(() => {});
+  setStatus('idle');
+}
 
 async function fullSync() {
   if (!sync.enabled) return;
@@ -277,12 +289,9 @@ export const sync = {
       if (!sync.enabled) return;
       if (document.visibilityState === 'visible') {
         if (!['off', 'signin'].includes(sync.status)) fullSync();
-      } else if (holding() && !store.dirty.size) {
-        stopHeartbeat();
-        writeLock(true, true).catch(() => {});
-        setStatus('idle');
-      }
+      } else onHide();
     });
+    addEventListener('pagehide', () => { onHide(); });
     if (!this.enabled) return;
     if (!storedToken()) { setStatus('signin'); return; }
     await fullSync();

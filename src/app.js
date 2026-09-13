@@ -1,5 +1,5 @@
 import { render } from 'preact';
-import { html, useState, useEffect, useStore, useSync, Toast, Modal, isEditing, HOTKEYS } from './ui.js';
+import { html, useState, useEffect, useStore, useSync, Toast, Modal, ErrorBoundary, isEditing, HOTKEYS } from './ui.js';
 import { store } from './store.js';
 import { sync } from './drive.js';
 import { fmtRel, bus } from './util.js';
@@ -99,11 +99,13 @@ function App() {
   else if (route.view === 'deckSettings') view = html`<${DeckSettings} key=${deck.id} deck=${deck} onAdd=${() => openCard(deck.id)} />`;
   else view = html`<${Decks} onAdd=${(id) => openCard(id)} />`;
 
+  const guard = (v, key) => html`<${ErrorBoundary} key=${key}>${v}<//>`;
   const overlays = html`
-    ${modal && store.deck(modal.deckId) && html`<${CardModal} key=${modal.n} deckId=${modal.deckId} cardId=${modal.cardId} view=${modal.view} ids=${modal.ids} onClose=${close} />`}
+    ${modal && store.deck(modal.deckId) && guard(html`<${CardModal} deckId=${modal.deckId} cardId=${modal.cardId} view=${modal.view} ids=${modal.ids} onClose=${close} />`, 'm' + modal.n)}
     ${help && html`<${Help} onClose=${() => setHelp(false)} />`}
     <${Toast} />`;
-  if (route.view === 'learn' && deck && !showLock) return html`${view}${overlays}`;
+  const guarded = guard(view, route.view + (route.deckId || ''));
+  if (route.view === 'learn' && deck && !showLock) return html`${guarded}${overlays}`;
 
   return html`
     <header class="top">
@@ -113,7 +115,7 @@ function App() {
       <${SyncStatus} />
       <a href="#/settings" class="gear" title="Settings">⚙</a>
     </header>
-    <main>${view}</main>
+    <main>${guarded}</main>
     ${overlays}`;
 }
 

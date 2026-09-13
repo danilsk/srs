@@ -1,3 +1,4 @@
+import { Component } from 'preact';
 import { html } from 'htm/preact';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'preact/hooks';
 import { store } from './store.js';
@@ -17,6 +18,18 @@ export function useSync() {
   const [, set] = useState(0);
   useEffect(() => { const un = sync.subscribe(() => set((n) => n + 1)); set((n) => n + 1); return un; }, []);
   return sync;
+}
+
+export class ErrorBoundary extends Component {
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error) { console.error(error); }
+  render(props, state) {
+    if (!state.error) return props.children;
+    return html`<div class="empty">This screen could not be rendered.
+      <div class="small muted" style="margin:8px 0 14px">${state.error.message}</div>
+      <button onClick=${() => location.reload()}>Reload</button>
+      <a href="#/"><button class="ghost">Decks</button></a></div>`;
+  }
 }
 
 export const Html = ({ html: s, class: cls, tag = 'div', title }) =>
