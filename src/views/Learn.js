@@ -37,7 +37,11 @@ export function Learn({ deck, onAdd, onEdit, keysEnabled, status }) {
     setQueue(q);
     setFlipped(false);
   };
-  const grade = (g) => commit(applyGrade(deck, card, g, side), g === 'again');
+  const dupStay = card && gradeStep(deck, card, 'stay') === gradeStep(deck, card, 'next');
+  const grade = (g) => {
+    if (g === 'stay' && dupStay) return;
+    return commit(applyGrade(deck, card, g, side), g === 'again');
+  };
   const move = (i) => commit(moveTo(deck, card, i));
   const doUndo = async () => {
     const u = undo[undo.length - 1];
@@ -119,7 +123,7 @@ export function Learn({ deck, onAdd, onEdit, keysEnabled, status }) {
     <footer class="lfoot">
       ${!flipped
         ? html`<div class="show-bar"><button class="primary" onClick=${() => setFlipped(true)}>Show answer <kbd>space</kbd></button></div>`
-        : html`<div class="grades">${GRADES.map((g, i) => html`<button key=${g} class=${g === 'again' ? 'again' : g === 'next' ? 'primary' : ''} onClick=${() => grade(g)}>
+        : html`<div class="grades">${GRADES.map((g, i) => html`<button key=${g} class=${g === 'again' ? 'again' : g === 'next' ? 'primary' : ''} disabled=${g === 'stay' && dupStay} onClick=${() => grade(g)}>
             ${GRADE_LABEL[g]}<small>${g === 'again' ? 'later in queue' : stepLabel(deck, gradeStep(deck, card, g))}</small><kbd>${i + 1}</kbd></button>`)}</div>`}
       ${ruler && html`<${Ruler} compact deck=${deck} step=${card.step} target=${flipped ? gradeStep(deck, card, 'next') : undefined} onPick=${move} />`}
       <div class="tools">

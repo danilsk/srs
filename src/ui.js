@@ -109,7 +109,6 @@ export function CardBody({ deck, card, side = 'front', flipped = true }) {
     ${flipped && html`<div class="answer">
       ${answerHead && html`<div class="word">${answerHead}</div>`}
       <ol class=${'senses' + (answerHead ? '' : ' first')}>${card.senses.map((s, i) => html`<li key=${i}>
-        <span class="n">${i + 1}</span>
         <div class="tr">${s.translation}</div>
         ${deck.senseFields.map((f) => s.fields?.[f.key] && html`<div class="sf" key=${f.key} title=${labels ? null : f.label}>${labels && html`<span class="lbl">${f.label}</span>`}<${Html} tag="span" html=${s.fields[f.key]} /></div>`)}
       </li>`)}</ol>
