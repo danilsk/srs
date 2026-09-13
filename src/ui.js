@@ -91,7 +91,7 @@ export function CardBody({ deck, card, side = 'front', flipped = true }) {
   const hasCardFields = deck.cardFields.some((f) => card.fields?.[f.key]);
   const labels = !!deck.showLabels;
   const prompt = side === 'front' ? card.front
-    : card.senses.map((s) => s.translation).filter(Boolean).map((t, i) => html`<div key=${i}>${t}</div>`);
+    : card.senses.map((s) => s.translation).filter(Boolean).map((t, i) => html`<div class="p" key=${i}>${t}</div>`);
   return html`<div class="word">${prompt}</div>
     ${flipped && html`<div class="answer">
       ${answerHead && html`<div class="word">${answerHead}</div>`}
