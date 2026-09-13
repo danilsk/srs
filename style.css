@@ -192,7 +192,7 @@ select.step.last{background:transparent;border-color:var(--line)}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .audio-line{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:2px 6px;height:35px}
 .audio-line .wave{flex:1;height:18px;background:repeating-linear-gradient(90deg,var(--line) 0 2px,transparent 2px 5px);border-radius:3px;opacity:.7}
-.audio-line .wave.none{background:none}
+.audio-line .wave.none{background:none;display:flex;align-items:center}
 .audio-line button{padding:2px 6px}
 .msec{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500;margin:18px 0 8px}
 .sense{border:1px solid var(--line);border-radius:8px;padding:10px 12px 2px;margin-bottom:10px}
