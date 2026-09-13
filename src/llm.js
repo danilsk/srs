@@ -18,7 +18,7 @@ async function call(body, signal) {
 
 function schemaFor(deck) {
   const str = (hint) => ({ type: 'string', description: hint });
-  const senseProps = { translation: str(`translation of this sense in ${deck.nativeLang}; several variants separated by ", "`) };
+  const senseProps = { translation: str(`concise translation of this sense in ${deck.nativeLang}; usually one equivalent, optionally two complementary equivalents separated by ", "; no redundant paraphrases`) };
   for (const f of deck.senseFields) senseProps[f.key] = str(f.hint);
   const props = {
     front_suggestion: { type: ['string', 'null'], description: 'corrected canonical form of the entry, or null if already correct' },
@@ -37,7 +37,7 @@ function systemPrompt(deck, front) {
   const lines = [
     'Respond with a single JSON object and nothing else:',
     '- front_suggestion: corrected canonical form of the entry, or null if it is already correct.',
-    `- senses: array of ${deck.sensesMin}–${deck.sensesMax} objects, most common sense first. Each object: translation (in ${deck.nativeLang}, variants separated by ", ")` +
+    `- senses: array of ${deck.sensesMin}–${deck.sensesMax} objects, most common sense first. Each object: translation (concise, in ${deck.nativeLang}; usually one equivalent, optionally two complementary equivalents separated by ", "; no redundant paraphrases)` +
       deck.senseFields.map((f) => `; ${f.key}: ${f.hint}`).join('') + `. Examples per sense: ${deck.examplesMin}–${deck.examplesMax}.`,
     ...deck.cardFields.map((f) => `- ${f.key}: ${f.hint}`),
     `Every field holds only what its description says. ${deck.nativeLang} text goes only into translation and into fields whose description asks for it; never append a translation to another field.`,
