@@ -74,6 +74,24 @@ try {
   ok(exp.decks.length === 1 && exp.cards.length === 5, 'export');
 
   // --- UI
+  const { render } = await import('preact');
+  const { html, CardBody } = await import('../src/ui.js');
+  const fixture = document.createElement('div');
+  document.body.append(fixture);
+  const viewDeck = { ...deck, cardFields: [{ key: 'grammar', label: 'Grammar' }] };
+  const viewCard = { ...c, fields: { grammar: 'shared grammar note' } };
+  const showCard = (side, flipped) => render(html`<${CardBody} deck=${viewDeck} card=${viewCard} side=${side} flipped=${flipped} />`, fixture);
+  showCard('back', false);
+  ok(fixture.querySelectorAll('.word .p').length === 2 && !fixture.querySelector('.sf, .answer, .fields'), 'Back hides answer and details before reveal');
+  showCard('back', true);
+  ok(fixture.querySelectorAll('.word .p').length === 2 && !fixture.querySelector('.answer .tr'), 'Back reveal shows each translation once');
+  ok(fixture.querySelector('.answer .senses > li .sf')?.textContent.includes('die Ruhe') && !fixture.querySelector('.word .sf'), 'Back reveal keeps sense details below the Front answer');
+  ok(fixture.querySelector('.answer .word')?.textContent === c.front && fixture.querySelector('.answer > :last-child')?.textContent === 'shared grammar note', 'Back keeps Front answer and shared fields below');
+  showCard('front', false);
+  ok(fixture.textContent === c.front, 'Front hides translations and details before reveal');
+  showCard('front', true);
+  ok(fixture.querySelector('.answer .sf') && fixture.querySelectorAll('.tr').length === 2, 'Front reveal keeps senses with answer');
+  render(null, fixture); fixture.remove();
   await import('../src/app.js');
   await sleep(300);
   location.hash = '#/';

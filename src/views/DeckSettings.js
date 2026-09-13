@@ -44,7 +44,7 @@ export function DeckSettings({ deck, onAdd }) {
         jitter: clamp((parseFloat(jitterPct) || 0) / 100, 0, 0.9),
         newPerDay: num(d.newPerDay, 0, 999, 10),
         sensesMin: num(d.sensesMin, 1, 10, 1), sensesMax: num(d.sensesMax, 1, 10, 5),
-        examplesMin: num(d.examplesMin, 0, 10, 1), examplesMax: num(d.examplesMax, 1, 10, 2),
+        examplesMin: num(d.examplesMin, 0, 10, 1), examplesMax: num(d.examplesMax, 1, 10, 1),
         prompt: d.prompt.trim() || DEFAULT_PROMPT,
       };
       if (out.sensesMax < out.sensesMin) out.sensesMax = out.sensesMin;

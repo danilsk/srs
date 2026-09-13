@@ -27,7 +27,7 @@ export function newDeck(name, targetLang, nativeLang) {
     steps: ['1h', '1d', '3d', '7d', '30d', '3m', '6m', '12m'],
     jitter: 0.15, newPerDay: 10,
     direction: 'alt-front', newOrder: 'added', reviewOrder: 'due', mix: 'mixed', showLabels: false,
-    sensesMin: 1, sensesMax: 5, examplesMin: 1, examplesMax: 2,
+    sensesMin: 1, sensesMax: 5, examplesMin: 1, examplesMax: 1,
     senseFields: [
       { key: 'synonyms', label: 'Synonyms', hint: synonymsHint(targetLang) },
       { key: 'examples', label: 'Examples', hint: `example sentences for this sense, each as HTML: <i>${targetLang} sentence</i><br>${nativeLang} translation, sentences separated by <br><br>` },

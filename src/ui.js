@@ -100,18 +100,19 @@ export function HtmlField({ value, onInput, placeholder = 'empty · click to edi
 }
 
 export function CardBody({ deck, card, side = 'front', flipped = true }) {
-  const answerHead = side === 'front' ? null : card.front;
   const hasCardFields = deck.cardFields.some((f) => card.fields?.[f.key]);
   const labels = !!deck.showLabels;
   const prompt = side === 'front' ? card.front
     : card.senses.map((s) => s.translation).filter(Boolean).map((t, i) => html`<div class="p" key=${i}>${t}</div>`);
+  const visibleSenses = side === 'front' ? card.senses
+    : card.senses.filter((s) => deck.senseFields.some((f) => s.fields?.[f.key]));
   return html`<div class="word">${prompt}</div>
     ${flipped && html`<div class="answer">
-      ${answerHead && html`<div class="word">${answerHead}</div>`}
-      <ol class=${'senses' + (answerHead ? '' : ' first')}>${card.senses.map((s, i) => html`<li key=${i}>
-        <div class="tr">${s.translation}</div>
+      ${side === 'back' && html`<div class="word">${card.front}</div>`}
+      ${visibleSenses.length > 0 && html`<ol class=${'senses' + (side === 'front' ? ' first' : '')}>${visibleSenses.map((s, i) => html`<li key=${i}>
+        ${side === 'front' && html`<div class="tr">${s.translation}</div>`}
         ${deck.senseFields.map((f) => s.fields?.[f.key] && html`<div class="sf" key=${f.key} title=${labels ? null : f.label}>${labels && html`<span class="lbl">${f.label}</span>`}<${Html} tag="span" html=${s.fields[f.key]} /></div>`)}
-      </li>`)}</ol>
+      </li>`)}</ol>`}
       ${hasCardFields && html`<div class=${'fields' + (labels ? '' : ' nolabels')}>${deck.cardFields.map((f) => card.fields?.[f.key] && html`${labels && html`<span class="lbl" key=${'l' + f.key}>${f.label}</span>`}<${Html} key=${f.key} title=${labels ? null : f.label} html=${card.fields[f.key]} />`)}</div>`}
     </div>`}`;
 }
