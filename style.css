@@ -239,7 +239,8 @@ select.step.last{background:transparent;border-color:var(--line)}
   .g2,.g3{grid-template-columns:1fr}
   .card{padding:36px 16px 26px;min-height:220px}
   .card .word{font-size:28px}
-  .lpage kbd,.spoiler{display:none}
+  kbd,.spoiler{display:none}
+  .hk kbd{display:inline}
   .mhead .small{display:none}
   .lt{gap:10px;padding:8px 12px}
   .lt .counts{gap:8px}
@@ -257,10 +258,9 @@ select.step.last{background:transparent;border-color:var(--line)}
 
   .tabs{flex-wrap:wrap;row-gap:2px;margin-bottom:16px}
   .tabs a{padding:8px 10px}
-  .tabs kbd{display:none}
   .tabs .spacer{display:none}
   .tabs button{order:2;margin:0 0 6px auto}
-  .tabs .meta{order:3;width:100%;margin:0;padding:0 2px 6px}
+  .tabs .meta{order:3;width:100%;margin:0;padding:8px 2px 6px}
 
   .bulk .ghost:last-child{margin-left:auto}
   .toolbar input{max-width:none}
@@ -291,4 +291,4 @@ select.step.last{background:transparent;border-color:var(--line)}
   td.side,td.revs,td.lapses,td.lastrev,td.added{display:none}
   td.none{grid-area:auto;grid-column:1/-1}
 }
-@media(pointer:coarse){.lpage kbd,.spoiler{display:none}}
+@media(pointer:coarse){kbd,.spoiler{display:none}.hk kbd{display:inline}}
