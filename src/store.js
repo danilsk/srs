@@ -6,13 +6,21 @@ const OLD_DEFAULT_PROMPT =
 `You are a {{target}} → {{native}} dictionary for a language learner. Entry: "{{front}}".
 Fix typos. Put verbs in the infinitive and nouns in their canonical dictionary form (with article where the language has one); if that differs from the entry, return it as front_suggestion. Give the senses most common first. Synonyms and examples must belong to their own sense. Keep HTML minimal.`;
 
-export const DEFAULT_PROMPT =
+const SPANISH_DEFAULT_PROMPT =
 `You are a {{target}} → {{native}} dictionary for a language learner. Entry: "{{front}}".
 Fix typos. Put verbs in the infinitive and nouns in their canonical dictionary form; if that differs from the entry, return it as front_suggestion, including when only an article is missing.
 For Spanish common nouns, include the appropriate definite article (el/la; los/las for nouns normally used in the plural). Examples: palillo → el palillo, mesa → la mesa, hada → el hada. Do not add articles to verbs, ordinary adjectives, or proper names. Use lo only for substantivized adjectives or expressions that require it, never as a generic noun article. Preserve established phrases.
 Give distinct senses most common first. Keep each translation concise and natural: usually one equivalent, or two complementary equivalents if useful. Add a short qualifier only when needed to distinguish the meaning. Do not repeat a translation as a longer definition or split paraphrases into separate senses. For the chopstick sense of el palillo in Russian, use "палочка для еды", without repeating it as "палочка для еды в китайской или японской кухне". Synonyms and examples must belong to their own sense.
 Grammar notes should cover only non-obvious facts worth learning, with explanations in {{native}} and word forms in {{target}}. Omit gender already clear from the article and predictable plurals or regular conjugations. Return an empty grammar string if nothing is notable. For el hada, explain the feminine gender despite el before stressed a, with la hermosa hada / las hadas as useful contrasts.
 Keep useful irregular verb forms. Put each tense or form group on its own line using HTML <br>, with a short label; keep forms within that group comma-separated. For oír with Russian explanations: "Настоящее: oigo, oyes, oye, oyen<br>Герундий: oyendo<br>Причастие: oído". Use minimal HTML in descriptive fields; translations and front_suggestion are plain text.`;
+
+export const DEFAULT_PROMPT =
+`You are a {{target}} → {{native}} dictionary for a language learner. Entry: "{{front}}".
+Fix typos and use the conventional dictionary form in {{target}} for the entry's part of speech. For verbs, use the infinitive where applicable, otherwise the customary citation form. For nouns, use the canonical form, preserving nouns normally used in the plural. Preserve established phrases and their meaning. If the canonical form differs from the entry, return it as front_suggestion, including when only an article is missing; otherwise return null.
+Follow the conventions of {{target}}, not those of another language. For common nouns, include the appropriate definite article when it is customary and useful in learner vocabulary to show gender or noun class. Respect exceptional article forms, elision, and number. Do not add articles merely because the language has them, or invent them for languages without articles. Do not add articles to verbs, ordinary adjectives, or proper names unless required by the established expression. Use special nominalizing forms only where the language requires them.
+Give distinct senses most common first. Keep each translation in {{native}} concise and natural: usually one equivalent, or two complementary equivalents if useful. Add a short qualifier only when needed to distinguish the meaning. Do not repeat a translation as a longer definition or split paraphrases into separate senses. Synonyms and examples must belong to their own sense.
+Grammar notes should cover only non-obvious facts worth learning, with explanations in {{native}} and word forms in {{target}}. Omit information already clear from the dictionary form, including gender clear from an article, and predictable inflections or regular conjugations. Include useful irregular forms and relevant exceptions in gender, noun class, article usage, inflection, or syntax. If an article obscures the noun's gender, explain it with short contrasting forms. Apply only categories that exist in {{target}}. Return an empty grammar string if nothing is notable.
+Put each tense or form group on its own line using HTML <br>, with a short label in {{native}}; keep forms within that group comma-separated. Use minimal HTML in descriptive fields; translations and front_suggestion are plain text.`;
 
 const OLD_GRAMMAR_HINT = 'gender, plural, irregular forms, register; empty string if nothing notable';
 const GRAMMAR_HINT = 'Only non-obvious grammar or register worth learning; explanations in the native language, forms in the target language. Omit gender obvious from the article, predictable plurals, and regular conjugations. Include useful irregular forms and exceptional gender/article usage. Each tense or form group on a separate line using <br>, with a short label and comma-separated forms within the group. Empty string if nothing notable.';
@@ -76,7 +84,7 @@ export function normDeck(d = {}) {
       f.key === 'grammar' && f.hint === OLD_GRAMMAR_HINT ? { ...f, hint: GRAMMAR_HINT } : f),
     tts: { ...base.tts, ...(isObj(d.tts) ? d.tts : null) },
     day: isObj(d.day) && d.day.date ? d.day : base.day,
-    prompt: d.prompt === OLD_DEFAULT_PROMPT ? DEFAULT_PROMPT : strOr(d.prompt, base.prompt),
+    prompt: [OLD_DEFAULT_PROMPT, SPANISH_DEFAULT_PROMPT].includes(d.prompt) ? DEFAULT_PROMPT : strOr(d.prompt, base.prompt),
     jitter: clamp(numOr(d.jitter, base.jitter), 0, 0.9),
     newPerDay: Math.max(0, numOr(d.newPerDay, base.newPerDay)),
     sensesMin: numOr(d.sensesMin, base.sensesMin), sensesMax: numOr(d.sensesMax, base.sensesMax),
