@@ -36,11 +36,18 @@ function systemPrompt(deck, front) {
     .replaceAll('{{target}}', deck.targetLang).replaceAll('{{native}}', deck.nativeLang).replaceAll('{{front}}', front);
   const lines = [
     'Respond with a single JSON object and nothing else:',
-    '- front_suggestion: corrected canonical form of the entry, or null if it is already correct.',
+    '- front_suggestion: corrected canonical form of the entry, or null if it is already correct. No surrounding quotes, labels, or added sentence-final punctuation. Preserve punctuation that belongs to an established expression.',
     `- senses: array of ${deck.sensesMin}–${deck.sensesMax} objects, most common sense first. Each object: translation (concise, in ${deck.nativeLang}; usually one equivalent, optionally two complementary equivalents separated by ", "; no redundant paraphrases)` +
-      deck.senseFields.map((f) => `; ${f.key}: ${f.hint}`).join('') + `. Examples per sense: ${deck.examplesMin}–${deck.examplesMax}.`,
+      deck.senseFields.map((f) => `; ${f.key}: ${f.hint}`).join('') + '.',
     ...deck.cardFields.map((f) => `- ${f.key}: ${f.hint}`),
+    `Example count per sense: ${deck.examplesMin === deck.examplesMax ? `exactly ${deck.examplesMin}` : `${deck.examplesMin}–${deck.examplesMax}, using the minimum unless another example teaches a different usage of this same sense`}. One example means ONE ${deck.targetLang} sentence paired with ONE ${deck.nativeLang} translation; the translation is not an additional example. This count takes precedence over any vague or conflicting example-count hints above.`,
+    'For the examples field, use <i>sentence</i><br>translation for each pair, and <br><br> only between pairs. No headings, numbering, bullets, extra sentences, or leading/trailing separators. Use natural sentence punctuation within examples.',
+    'For synonyms, give up to 3 genuine synonyms matching this sense and part of speech, separated by " · " only between words or phrases. Return an empty string if none fits; never invent synonyms to reach a minimum.',
+    'Return an empty string for optional fields with nothing useful to say. Never use punctuation-only placeholders such as ".", ",", "?", "—", or "...", or text such as "N/A". Translations and synonyms have no added sentence-final punctuation. All descriptive fields are strings, never arrays or objects; no Markdown or code fences.',
+    `If the target language (${deck.targetLang}) is English: use bare nouns without a/an/the and base-form verbs without an added "to", except where these words belong to an established phrase. Preserve phrasal verbs. Do not turn an entry into a question or a full sentence.`,
+    'Choose distinct, common meanings useful to a learner; the maximum sense count is a ceiling, not a quota. Do not pad the card with rare meanings or split equivalent translations into separate senses.',
     `Every field holds only what its description says. ${deck.nativeLang} text goes only into translation and into fields whose description asks for it; never append a translation to another field.`,
+    'Before responding, check each sense: the example count matches the rule above, every example and synonym belongs to that sense, and no field contains filler or stray separators.',
   ];
   return tpl + '\n\n' + lines.join('\n');
 }
