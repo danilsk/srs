@@ -115,7 +115,7 @@ function App() {
       <${SyncStatus} />
       <a href="#/settings" class="gear" title="Settings">⚙</a>
     </header>
-    <main>${guarded}</main>
+    <main class=${route.deckId ? 'wide' : ''}>${guarded}</main>
     ${overlays}`;
 }
 

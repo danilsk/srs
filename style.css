@@ -52,6 +52,7 @@ ul,ol{list-style:none;padding:0;margin:0}
 .sync.pushing::before,.sync.pulling::before,.sync.connecting::before{background:var(--amber)}
 .sync.locked::before,.sync.error::before,.sync.offline::before{background:var(--warn)}
 main{max-width:1100px;margin:0 auto;padding:22px 20px 60px}
+main.wide{max-width:1600px}
 
 /* deck tabs */
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:22px;align-items:center}
@@ -166,12 +167,13 @@ td.chk,th.chk{width:28px;padding-right:0;cursor:default}
 td.act,th.act{width:34px;padding:0 4px;cursor:default}
 td.act button{padding:2px 7px;color:var(--muted)}
 td.chk input,th.chk input{width:auto;margin:0}
-td.front{font-weight:500}
-td.back{color:var(--muted);max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.front{font-weight:500;min-width:150px}
+td.back{color:var(--muted);max-width:min(46vw,620px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 td .play{background:none;border:0;padding:0 4px;font-size:13px}
 select.step{width:auto;padding:1px 22px 1px 8px;font-size:12px;border-radius:99px;background:var(--soft2);border-color:transparent;color:var(--fg)}
 select.step.new{background:var(--acc-soft);color:var(--acc)}
 select.step.last{background:transparent;border-color:var(--line)}
+.sortsel{display:none}
 .pager{display:flex;gap:14px;justify-content:center;margin-top:14px;font-size:13px;color:var(--muted);align-items:center}
 
 /* modal */
@@ -212,7 +214,7 @@ select.step.last{background:transparent;border-color:var(--line)}
 .err{color:var(--warn);font-size:13px}
 
 /* settings */
-.form{max-width:640px}
+.form{max-width:700px}
 .form h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:500;margin:26px 0 10px}
 .form h3:first-child{margin-top:0}
 .schema{border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -252,5 +254,41 @@ select.step.last{background:transparent;border-color:var(--line)}
   .front-line{flex-wrap:wrap}
   .front-line button{padding:10px 18px}
   .schema .srow{grid-template-columns:1fr 1fr;grid-auto-rows:auto}
+
+  .tabs{flex-wrap:wrap;row-gap:2px;margin-bottom:16px}
+  .tabs a{padding:8px 10px}
+  .tabs kbd{display:none}
+  .tabs .spacer{display:none}
+  .tabs button{order:2;margin:0 0 6px auto}
+  .tabs .meta{order:3;width:100%;margin:0;padding:0 2px 6px}
+
+  .bulk .ghost:last-child{margin-left:auto}
+  .toolbar input{max-width:none}
+  .toolbar>.q{display:none}
+  .sortsel{display:flex;gap:4px;align-items:center}
+  .sortsel select{width:auto;font-size:13px;padding:4px 24px 4px 8px}
+  .sortsel button{font-size:13px;padding:4px 9px}
+
+  .tablewrap{overflow-x:visible}
+  table,tbody,tr,td{display:block}
+  thead{display:none}
+  tbody tr{display:grid;grid-template-columns:auto 1fr auto auto;
+    grid-template-areas:"chk front audio act" "chk back back back" "chk step due due";
+    gap:3px 8px;align-items:center;padding:10px 6px;border-bottom:1px solid var(--line);border-radius:8px}
+  tbody tr:hover td,tr.sel td{background:none}
+  tr.sel{background:var(--acc-soft)}
+  td{border:0;padding:0}
+  td.chk{grid-area:chk;width:auto;align-self:start;padding-top:3px}
+  td.front{grid-area:front;min-width:0;font-size:16px;overflow-wrap:anywhere}
+  td.audio{grid-area:audio}
+  td.audio .play{font-size:16px;padding:4px 6px}
+  td.act{grid-area:act;width:auto}
+  td.act button{padding:4px 8px}
+  td.back{grid-area:back;max-width:none;white-space:normal;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  td.stepcell{grid-area:step;justify-self:start}
+  td.due{grid-area:due;text-align:right;font-size:13px}
+  td.side,td.revs,td.lapses,td.lastrev,td.added{display:none}
+  td.none{grid-area:auto;grid-column:1/-1}
 }
 @media(pointer:coarse){.lpage kbd,.spoiler{display:none}}

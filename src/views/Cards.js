@@ -53,7 +53,8 @@ export function Cards({ deck, onAdd, onOpen, keysEnabled }) {
   const pg = Math.min(page, pages - 1);
   const pageRows = rows.slice(pg * PAGE, pg * PAGE + PAGE);
 
-  const toggleSort = (key) => setSort((s) => (s.col === key ? { col: key, asc: !s.asc } : { col: key, asc: key !== 'created' && key !== 'lastReview' }));
+  const defaultAsc = (key) => key !== 'created' && key !== 'lastReview';
+  const toggleSort = (key) => setSort((s) => (s.col === key ? { col: key, asc: !s.asc } : { col: key, asc: defaultAsc(key) }));
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allOnPage = pageRows.length > 0 && pageRows.every((c) => sel.has(c.id));
   const toggleAll = () => setSel((s) => { const n = new Set(s); for (const c of pageRows) allOnPage ? n.delete(c.id) : n.add(c.id); return n; });
@@ -101,6 +102,12 @@ export function Cards({ deck, onAdd, onOpen, keysEnabled }) {
       <input ref=${searchRef} placeholder="Search…  /" value=${q} onInput=${(e) => { setQ(e.target.value); setPage(0); }}
         onKeyDown=${(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (q) setQ(''); else e.target.blur(); } }} />
       <div class="filters">${Object.keys(filters).map((k) => html`<button key=${k} class=${filter === k ? 'on' : ''} onClick=${() => { setFilter(k); setPage(0); }}>${FILTER_LABEL[k]} ${cards.filter(filters[k]).length}</button>`)}</div>
+      <div class="sortsel">
+        <select value=${sort.col} onChange=${(e) => setSort({ col: e.target.value, asc: defaultAsc(e.target.value) })}>
+          ${cols.map((c) => html`<option key=${c.key} value=${c.key}>sort: ${c.label}</option>`)}
+        </select>
+        <button onClick=${() => setSort((s) => ({ ...s, asc: !s.asc }))}>${sort.asc ? '↑' : '↓'}</button>
+      </div>
       <span class="spacer"></span>
       <span class="muted small">${rows.length === cards.length ? '' : `${rows.length} shown`}</span>
       <${Q} right text="Click a header to sort. Click a row to view it, ⌘/Ctrl-click or ✎ to edit. Changing the step reschedules the card from now. Tick rows for bulk actions." />
@@ -128,19 +135,19 @@ export function Cards({ deck, onAdd, onOpen, keysEnabled }) {
         <td class="chk" onClick=${(e) => e.stopPropagation()}><input type="checkbox" checked=${sel.has(c.id)} onChange=${() => toggle(c.id)} /></td>
         <td class="front">${c.front}</td>
         <td class="back" title=${cardBack(c)}>${cardBack(c)}</td>
-        <td>${c.audio ? html`<button class="play" onClick=${(e) => { e.stopPropagation(); playCard(c); }}>▶</button>` : html`<span class="muted">–</span>`}</td>
-        <td onClick=${(e) => e.stopPropagation()}>
+        <td class="audio">${c.audio ? html`<button class="play" onClick=${(e) => { e.stopPropagation(); playCard(c); }}>▶</button>` : html`<span class="muted">–</span>`}</td>
+        <td class="stepcell" onClick=${(e) => e.stopPropagation()}>
           <select class=${'step' + (c.step < 0 ? ' new' : isMature(deck, c) ? ' last' : '')} value=${c.step} onChange=${(e) => setStep(c, +e.target.value)}>${stepOptions}</select>
         </td>
         <td class=${'due' + (isDue(c, t) ? ' over' : '')}>${fmtRel(c.due, t)}</td>
-        <td class="muted">${sideFor(deck, c)}</td>
-        <td class="num">${c.reviews}</td>
-        <td class="num">${c.lapses}</td>
-        <td class="muted">${fmtDate(c.lastReview, t)}</td>
-        <td class="muted">${fmtDate(c.created, t)}</td>
+        <td class="muted side">${sideFor(deck, c)}</td>
+        <td class="num revs">${c.reviews}</td>
+        <td class="num lapses">${c.lapses}</td>
+        <td class="muted lastrev">${fmtDate(c.lastReview, t)}</td>
+        <td class="muted added">${fmtDate(c.created, t)}</td>
         <td class="act"><button class="ghost sm" title="edit" onClick=${(e) => { e.stopPropagation(); onOpen(c.id, 'edit'); }}>✎</button></td>
       </tr>`)}
-      ${!pageRows.length && html`<tr><td colspan="12" class="muted" style="text-align:center;padding:30px">${cards.length ? 'no matches' : 'no cards yet'}</td></tr>`}
+      ${!pageRows.length && html`<tr><td colspan="12" class="muted none" style="text-align:center;padding:30px">${cards.length ? 'no matches' : 'no cards yet'}</td></tr>`}
       </tbody>
     </table></div>
     ${pages > 1 && html`<div class="pager">
