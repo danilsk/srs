@@ -107,8 +107,7 @@ Phases 1–7 implemented. Files: `index.html`, `style.css`, `src/` (app, store, 
 ## Dev
 
 ```
-python3 -m http.server 8123          # ES modules need http, not file://
-open http://127.0.0.1:8123/
+./start.sh                           # serves the repo on 8123 and opens it (port: ./start.sh 9000)
 node dev/cdp.mjs "http://127.0.0.1:8123/dev/test.html?wipe=yes" "#/,#/deck/{deck}/learn|space"
 ```
 `dev/test.html` is a headless smoke test (schedule, store, UI); it wipes the local database, hence the `wipe=yes` guard. The second argument to `cdp.mjs` is an optional list of screens to screenshot.
