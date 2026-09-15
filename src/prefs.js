@@ -9,7 +9,7 @@ export const DEFAULTS = {
 };
 
 export const prefs = {
-  get(k) { return localStorage.getItem('srs.' + k) ?? DEFAULTS[k] ?? ''; },
+  get(k) { return localStorage.getItem('srs.' + k) || DEFAULTS[k] || ''; },
   set(k, v) { localStorage.setItem('srs.' + k, v); },
   clientId() {
     let id = localStorage.getItem('srs.clientId');

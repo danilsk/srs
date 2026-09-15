@@ -1,4 +1,4 @@
-import { html, useState, useEffect, Ruler, CardBody, isEditing } from '../ui.js';
+import { html, useState, useEffect, useRef, Ruler, CardBody, isEditing } from '../ui.js';
 import { store } from '../store.js';
 import { buildQueue, requeue, sideFor, applyGrade, moveTo, gradeStep, stepLabel, GRADES, GRADE_LABEL, deckStats, isNew } from '../schedule.js';
 import { playCard } from '../audio.js';
@@ -12,6 +12,7 @@ export function Learn({ deck, onAdd, onEdit, keysEnabled, status }) {
   const [undo, setUndo] = useState([]);
   const [done, setDone] = useState(0);
   const [ruler, setRuler] = useState(rulerPref);
+  const pending = useRef(false);
 
   const live = queue.filter((id) => store.card(id));
   const card = store.card(live[0]);
@@ -24,18 +25,22 @@ export function Learn({ deck, onAdd, onEdit, keysEnabled, status }) {
   }, [card?.id, flipped]);
 
   const commit = async (patch, again = false) => {
-    const before = { card: clone(card), queue: [...queue], day: clone(deck.day || null) };
-    const updated = { ...card, ...patch };
-    if (isNew(card) && !isNew(updated)) {
-      deck.day = deck.day?.date === todayKey() ? { ...deck.day, count: deck.day.count + 1 } : { date: todayKey(), count: 1 };
-      await store.saveDeck(deck);
-    }
-    await store.saveCard(updated);
-    const q = live.slice(1);
-    if (again) requeue(q, card.id); else setDone((d) => d + 1);
-    setUndo((u) => [...u.slice(-49), before]);
-    setQueue(q);
-    setFlipped(false);
+    if (pending.current) return;
+    pending.current = true;
+    try {
+      const before = { card: clone(card), queue: [...queue], day: clone(deck.day || null) };
+      const updated = { ...card, ...patch };
+      if (isNew(card) && !isNew(updated)) {
+        deck.day = deck.day?.date === todayKey() ? { ...deck.day, count: deck.day.count + 1 } : { date: todayKey(), count: 1 };
+        await store.saveDeck(deck);
+      }
+      await store.saveCard(updated);
+      const q = live.slice(1);
+      if (again) requeue(q, card.id); else setDone((d) => d + 1);
+      setUndo((u) => [...u.slice(-49), before]);
+      setQueue(q);
+      setFlipped(false);
+    } finally { pending.current = false; }
   };
   const dupStay = card && gradeStep(deck, card, 'stay') === gradeStep(deck, card, 'next');
   const grade = (g) => {
@@ -66,7 +71,7 @@ export function Learn({ deck, onAdd, onEdit, keysEnabled, status }) {
   useEffect(() => {
     if (!keysEnabled) return;
     const h = (e) => {
-      if (isEditing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isEditing(e) || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'u') { doUndo(); e.preventDefault(); return; }
       if (!card) return;

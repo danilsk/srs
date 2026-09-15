@@ -134,7 +134,7 @@ export const store = {
       const defaultsChanged = saved?.prompt !== d.prompt || JSON.stringify(saved?.cardFields) !== JSON.stringify(d.cardFields);
       const f = d.senseFields.find((f) => OLD_SYNONYMS_HINT.test(f.hint));
       if (f) f.hint = synonymsHint(d.targetLang);
-      if (f || defaultsChanged) await this.saveDeck(d);
+      if (f || defaultsChanged) await this.saveDeck(d, { silent: true });
     }
     this.ready = true;
     emit();

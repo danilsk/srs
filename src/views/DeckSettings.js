@@ -37,7 +37,7 @@ export function DeckSettings({ deck, onAdd }) {
       const keys = [...senseFields, ...cardFields].map((f) => f.key);
       for (const k of keys) if (!/^[a-z][a-z0-9_]*$/.test(k)) throw new Error(`field key "${k}" must be lowercase letters, digits, _`);
       if (new Set(keys).size !== keys.length || keys.includes('translation')) throw new Error('field keys must be unique and not "translation"');
-      const num = (v, lo, hi, dflt) => clamp(parseInt(v) || dflt, lo, hi);
+      const num = (v, lo, hi, dflt) => { const n = parseInt(v); return clamp(Number.isFinite(n) ? n : dflt, lo, hi); };
       const out = {
         ...rest, steps, senseFields, cardFields,
         name: d.name.trim() || deck.name, targetLang: d.targetLang.trim() || deck.targetLang, nativeLang: d.nativeLang.trim() || deck.nativeLang,

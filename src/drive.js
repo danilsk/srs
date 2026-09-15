@@ -198,7 +198,10 @@ async function pull() {
   }
   for (const [name, f] of remote) {
     const deckId = name.slice(5, -5);
-    if (store.dirty.has(deckId) || store.deleted.has(deckId)) continue;
+    if (store.dirty.has(deckId) || store.deleted.has(deckId)) {
+      meta.files[name] = { id: f.id, modifiedTime: meta.files[name]?.modifiedTime ?? null };
+      continue;
+    }
     if (meta.files[name]?.modifiedTime === f.modifiedTime && store.deck(deckId)) continue;
     const data = await downloadJson(f.id);
     if (!data?.deck?.id) continue;
