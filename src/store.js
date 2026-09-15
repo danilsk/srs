@@ -247,7 +247,8 @@ export const store = {
   },
   async importJson(text) {
     const data = JSON.parse(text);
-    if (!Array.isArray(data.decks) || !Array.isArray(data.cards)) throw new Error('not an srs export');
+    if (data.deck && !data.decks) data.decks = [data.deck];
+    if (!Array.isArray(data.decks) || !Array.isArray(data.cards)) throw new Error('not an srs export or Drive deck file');
     for (const d of data.decks) await this.saveDeck(normDeck(d));
     const byDeck = new Map();
     for (const c of data.cards) {

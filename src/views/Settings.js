@@ -39,8 +39,9 @@ export function Settings() {
   const label = {
     off: 'not connected', signin: 'signed out', connecting: 'connecting…', pulling: 'pulling…', pushing: 'pushing…',
     synced: `synced ${sync.lastSync ? fmtRel(sync.lastSync) : ''}`, idle: 'idle · lock released', locked: 'locked by another browser',
-    offline: 'offline', error: `error · ${sync.error}`,
+    offline: 'offline', error: `error · ${sync.error}`, conflict: 'conflict · changed on Drive and here',
   }[sync.status] || sync.status;
+  const resolve = (id, keep) => sync.resolveConflict(id, keep).catch(bus.error);
 
   return html`<div class="form">
     <h3>OpenRouter</h3>
@@ -63,6 +64,11 @@ export function Settings() {
           ${info && html`<span class="muted small">· ${info.decks} deck files · ${info.audio} audio files</span>`}
           ${store.dirty.size > 0 && html`<span class="muted small">· ${store.dirty.size} deck${store.dirty.size === 1 ? '' : 's'} unsynced</span>`}
         </div>
+        ${sync.status === 'conflict' && sync.conflicts.map((id) => html`<div class="row conflict" key=${id}>
+          <b>${store.deck(id)?.name || id}</b>
+          <button class="primary" onClick=${() => resolve(id, 'local')}>Keep this device</button>
+          <button class="danger" onClick=${() => resolve(id, 'drive')}>Keep Drive, discard local changes</button>
+        </div>`)}
         <div class="row" style="margin-top:10px">
           ${sync.status === 'signin' ? html`<button class="primary" onClick=${connect}>Sign in</button>` : html`<button onClick=${() => sync.syncNow()}>Sync now</button>`}
           ${['synced', 'pushing', 'pulling'].includes(sync.status) && html`<button class="ghost" onClick=${() => sync.releaseLock()}>Release lock</button>`}

@@ -117,9 +117,10 @@ async function upload(name, blob, existingId, parent, keepalive = false) {
 const jsonBlob = (obj) => new Blob([JSON.stringify(obj)], { type: 'application/json' });
 const downloadJson = async (id) => (await gfetch(`${API}/files/${id}?alt=media`)).json();
 const downloadBlob = async (id) => (await gfetch(`${API}/files/${id}?alt=media`)).blob();
-async function deleteFile(id) {
-  try { await gfetch(`${API}/files/${id}`, { method: 'DELETE' }); }
-  catch (e) { if (!/404/.test(e.message)) throw e; }
+async function trashFile(id) {
+  try {
+    await gfetch(`${API}/files/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+  } catch (e) { if (!/404/.test(e.message)) throw e; }
 }
 
 const fname = (deckId) => `deck-${deckId}.json`;
@@ -174,7 +175,7 @@ function startHeartbeat() {
   }, HEARTBEAT);
 }
 function stopHeartbeat() { clearInterval(heartbeat); heartbeat = null; }
-const holding = () => ['synced', 'pushing', 'pulling'].includes(sync.status);
+const holding = () => ['synced', 'pushing', 'pulling', 'conflict'].includes(sync.status);
 
 function handleErr(e) {
   console.warn('sync', e);
@@ -218,10 +219,16 @@ async function push() {
   busy = true;
   try {
     setStatus('pushing');
+    const remote = new Map((await listFiles(meta.folderId)).map((f) => [f.name, f]));
+    const conflicts = [];
     for (const deckId of [...store.dirty]) {
       const rev = store.rev(deckId);
       const deck = store.deck(deckId);
       if (!deck) { await store.clearDirty(deckId); continue; }
+      const name = fname(deckId);
+      const current = remote.get(name)?.modifiedTime;
+      // Drive changed since this device last pulled or pushed: never overwrite unseen work.
+      if (current && current !== meta.files[name]?.modifiedTime) { conflicts.push(deckId); continue; }
       const cards = store.cardsOf(deckId);
       for (const c of cards) {
         if (!c.audio || c.audio.driveId) continue;
@@ -231,7 +238,6 @@ async function push() {
         c.audio.driveId = r.id;
         await store.saveCard(c, { silent: true });
       }
-      const name = fname(deckId);
       const r = await upload(name, jsonBlob({ deck, cards }), meta.files[name]?.id, meta.folderId);
       meta.files[name] = { id: r.id, modifiedTime: r.modifiedTime };
       // A save during the upload is not in the snapshot we just sent: keep the deck dirty.
@@ -239,13 +245,14 @@ async function push() {
     }
     for (const id of [...store.deleted]) {
       const f = meta.files[fname(id)];
-      if (f) await deleteFile(f.id);
+      if (f) await trashFile(f.id);
       delete meta.files[fname(id)];
       await store.clearDeleted(id);
     }
     await saveMeta();
     sync.lastSync = now();
-    setStatus('synced');
+    sync.conflicts = conflicts;
+    setStatus(conflicts.length ? 'conflict' : 'synced');
   } finally {
     busy = false;
     if (rerun) { rerun = false; pushSoon(); }
@@ -281,13 +288,13 @@ async function fullSync() {
 }
 
 export const sync = {
-  status: 'off', error: null, lastSync: null, lockInfo: null, lockSince: null,
+  status: 'off', error: null, lastSync: null, lockInfo: null, lockSince: null, conflicts: [],
   get enabled() { return !!prefs.get('gClientId') && prefs.get('driveOn') === '1'; },
   subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
   async start() {
     store.onDirty = () => { if (holding()) pushSoon(); };
-    store.onAudioDeleted = (ids) => { if (holding()) for (const id of ids) deleteFile(id).catch(() => {}); };
+    store.onAudioDeleted = (ids) => { if (holding()) for (const id of ids) trashFile(id).catch(() => {}); };
     document.addEventListener('visibilitychange', () => {
       if (!sync.enabled) return;
       if (document.visibilityState === 'visible') {
@@ -318,6 +325,19 @@ export const sync = {
     setStatus('connecting');
     try { await writeLock(); await fullSync(); } catch (e) { handleErr(e); }
   },
+  async resolveConflict(deckId, keep) {
+    const name = fname(deckId);
+    if (keep === 'drive') {
+      await store.clearDirty(deckId);
+      if (meta.files[name]) meta.files[name].modifiedTime = null;
+    } else {
+      const f = (await listFiles(meta.folderId)).find((x) => x.name === name);
+      if (f) meta.files[name] = { id: f.id, modifiedTime: f.modifiedTime };
+    }
+    await saveMeta();
+    sync.conflicts = sync.conflicts.filter((id) => id !== deckId);
+    await fullSync();
+  },
   async releaseLock() {
     stopHeartbeat();
     if (store.dirty.size) await push().catch(handleErr);
@@ -334,7 +354,7 @@ export const sync = {
     await store.saveAudio(card.audio.key, blob);
     return blob;
   },
-  deleteRemoteAudio(driveId) { if (driveId && holding()) deleteFile(driveId).catch(() => {}); },
+  deleteRemoteAudio(driveId) { if (driveId && holding()) trashFile(driveId).catch(() => {}); },
 
   async info() {
     if (!meta?.folderId) return null;

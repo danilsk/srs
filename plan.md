@@ -73,6 +73,8 @@ DayCounter { deckId, date, newShown }
 - **Lock**: on open, read `lock.json`. If it belongs to another client and is younger than 10 min → lock screen ("in use elsewhere · wait / take over"). Otherwise write our lock and refresh it every 2 min while the tab is visible. Release on `pagehide` / explicit "Done".
 - **Pull** after acquiring the lock: download deck files whose `modifiedTime` > local. Audio downloaded lazily on first play, cached in IndexedDB.
 - **Push**: debounced 5 s after any change; whole deck file overwritten (single writer → no merging). New audio uploaded right away.
+- **Conflict check**: before uploading a dirty deck, push compares the file's Drive `modifiedTime` with the one recorded at the last pull/push. A mismatch means another device wrote meanwhile: the deck is not pushed, status becomes `conflict`, and Settings offers "Keep this device" / "Keep Drive". No merging.
+- **Recovery**: deck and audio files are trashed, not deleted (30 days in Drive trash). Drive keeps revisions of `deck-<id>.json`; a downloaded revision imports directly via Settings → Import.
 - Sync status always visible in the header (synced / pushing / offline / locked).
 
 ## Screens

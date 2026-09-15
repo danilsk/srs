@@ -42,6 +42,7 @@ function SyncStatus() {
     synced: [s.lastSync ? `synced ${fmtRel(s.lastSync)}` : 'synced', () => sync.syncNow()],
     idle: ['idle · click to sync', () => sync.syncNow()],
     locked: ['locked elsewhere', go('#/lock')],
+    conflict: ['sync conflict · resolve', go('#/settings')],
     offline: ['offline · retry', () => sync.syncNow()],
     error: ['sync error', go('#/settings')],
   };
