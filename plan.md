@@ -75,7 +75,8 @@ DayCounter { deckId, date, newShown }
 - **Push**: debounced 5 s after any change; whole deck file overwritten (single writer → no merging). New audio uploaded right away.
 - **Conflict check**: before uploading a dirty deck, push compares the file's Drive `modifiedTime` with the one recorded at the last pull/push. A mismatch means another device wrote meanwhile: the deck is not pushed, status becomes `conflict`, and Settings offers "Keep this device" / "Keep Drive". No merging.
 - **Recovery**: deck and audio files are trashed, not deleted (30 days in Drive trash). Drive keeps revisions of `deck-<id>.json`; a downloaded revision imports directly via Settings → Import.
-- Sync status always visible in the header (synced / pushing / offline / locked).
+- Sync status always visible in the header (synced / pushing / offline / locked / conflict).
+- **Gate**: with Drive enabled, the app shows "Syncing…" until the first pull of the session completes. An expired token shows an explicit "Sign in with Google" screen; offline or error shows Retry. "Continue offline" dismisses the gate for the session. The same screen returns if the token expires mid-session.
 
 ## Screens
 
@@ -85,7 +86,7 @@ DayCounter { deckId, date, newShown }
 4. **Card modal** — one component for add and edit. Front + Generate, generation status, suggested front, audio (play / regenerate / remove), a Senses section (ordered blocks: translation + sense fields, "+ sense") and a Card section (card fields, always last). HTML fields show a rendered preview; clicking one opens the HTML textarea (blur/Esc returns to preview). Edit mode adds the ruler, Delete, Regenerate all. A read-only **view** mode (table row click) renders the card as in Learn, with ruler, ← → through the filtered list, `E` to edit; the ✎ column opens edit directly.
 5. **Deck › Settings** — languages, steps, limits, direction/order, senses range + sense fields, card fields, prompt, voice, export/delete.
 6. **Settings** — OpenRouter key/models, Drive connect, sync state, export/import all.
-7. **Lock screen**.
+7. **Lock screen** and **Gate screen** (sign in / syncing / offline).
 
 ## Hotkeys
 

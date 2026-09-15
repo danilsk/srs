@@ -71,7 +71,6 @@ export function Settings() {
         </div>`)}
         <div class="row" style="margin-top:10px">
           ${sync.status === 'signin' ? html`<button class="primary" onClick=${connect}>Sign in</button>` : html`<button onClick=${() => sync.syncNow()}>Sync now</button>`}
-          ${['synced', 'pushing', 'pulling'].includes(sync.status) && html`<button class="ghost" onClick=${() => sync.releaseLock()}>Release lock</button>`}
           <span class="spacer"></span>
           <button class="ghost" onClick=${() => sync.disconnect()}>Disconnect</button>
           <${Q} right text="This browser holds the lock while the tab is visible and releases it when hidden, unless there are unsynced changes. Another browser sees a lock screen meanwhile; a stale lock expires after 10 minutes." />

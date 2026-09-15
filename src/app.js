@@ -9,6 +9,7 @@ import { Cards } from './views/Cards.js';
 import { DeckSettings } from './views/DeckSettings.js';
 import { Settings } from './views/Settings.js';
 import { Lock } from './views/Lock.js';
+import { Gate } from './views/Gate.js';
 import { CardModal } from './views/CardModal.js';
 
 function parseHash() {
@@ -65,10 +66,14 @@ function App() {
   const [modal, setModal] = useState(null);
   const [help, setHelp] = useState(false);
   const [lockDismissed, setLockDismissed] = useState(false);
+  const [gateDismissed, setGateDismissed] = useState(false);
   const deck = route.deckId ? store.deck(route.deckId) : null;
   const openCard = (deckId, cardId = null, mode = 'edit', ids = []) => setModal({ deckId, cardId, view: mode === 'view', ids, n: Math.random() });
   const close = () => setModal(null);
   const showLock = (s.status === 'locked' && !lockDismissed) || route.view === 'lock';
+  const showGate = !showLock && s.enabled && !gateDismissed && route.view !== 'settings' &&
+    (s.status === 'signin' || (!s.pulled && ['off', 'connecting', 'pulling', 'offline', 'error'].includes(s.status)));
+  const blocked = showLock || showGate;
   useEffect(() => { setModal(null); }, [route.view, route.deckId]);
 
   useEffect(() => {
@@ -82,7 +87,7 @@ function App() {
       }
       if (isEditing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '?') setHelp(true);
-      else if (e.key.toLowerCase() === 'n' && deck && !showLock) { e.preventDefault(); openCard(deck.id); }
+      else if (e.key.toLowerCase() === 'n' && deck && !blocked) { e.preventDefault(); openCard(deck.id); }
     };
     addEventListener('keydown', h);
     return () => removeEventListener('keydown', h);
@@ -93,6 +98,7 @@ function App() {
   const keysEnabled = !modal && !help;
   let view;
   if (showLock) view = html`<${Lock} onDismiss=${() => { setLockDismissed(true); if (route.view === 'lock') location.hash = '#/'; }} />`;
+  else if (showGate) view = html`<${Gate} onDismiss=${() => setGateDismissed(true)} />`;
   else if (route.view === 'settings') view = html`<${Settings} />`;
   else if (route.deckId && !deck) view = html`<div class="empty">deck not found · <a class="link" href="#/">decks</a></div>`;
   else if (route.view === 'learn') view = html`<${Learn} key=${deck.id} deck=${deck} keysEnabled=${keysEnabled} status=${html`<${SyncStatus} />`} onAdd=${() => openCard(deck.id)} onEdit=${(id) => openCard(deck.id, id)} />`;
@@ -106,12 +112,12 @@ function App() {
     ${help && html`<${Help} onClose=${() => setHelp(false)} />`}
     <${Toast} />`;
   const guarded = guard(view, route.view + (route.deckId || ''));
-  if (route.view === 'learn' && deck && !showLock) return html`${guarded}${overlays}`;
+  if (route.view === 'learn' && deck && !blocked) return html`${guarded}${overlays}`;
 
   return html`
     <header class="top">
       <a href="#/" class="crumb">Decks</a>
-      ${deck && !showLock && html`<span class="sep">/</span><a class="crumb" href=${`#/deck/${deck.id}/cards`}>${deck.name}</a>`}
+      ${deck && !blocked && html`<span class="sep">/</span><a class="crumb" href=${`#/deck/${deck.id}/cards`}>${deck.name}</a>`}
       <span class="spacer"></span>
       <${SyncStatus} />
       <a href="#/settings" class="gear" title="Settings">⚙</a>

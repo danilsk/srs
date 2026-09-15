@@ -281,6 +281,7 @@ async function fullSync() {
     await writeLock();
     setStatus('pulling');
     await pull();
+    sync.pulled = true;
     startHeartbeat();
     setStatus('synced');
     await push();
@@ -288,7 +289,7 @@ async function fullSync() {
 }
 
 export const sync = {
-  status: 'off', error: null, lastSync: null, lockInfo: null, lockSince: null, conflicts: [],
+  status: 'off', error: null, lastSync: null, lockInfo: null, lockSince: null, conflicts: [], pulled: false,
   get enabled() { return !!prefs.get('gClientId') && prefs.get('driveOn') === '1'; },
   subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
@@ -337,12 +338,6 @@ export const sync = {
     await saveMeta();
     sync.conflicts = sync.conflicts.filter((id) => id !== deckId);
     await fullSync();
-  },
-  async releaseLock() {
-    stopHeartbeat();
-    if (store.dirty.size) await push().catch(handleErr);
-    await writeLock(true).catch(handleErr);
-    setStatus('idle');
   },
 
   async ensureAudio(card) {
