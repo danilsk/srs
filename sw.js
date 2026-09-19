@@ -1,7 +1,7 @@
 // Bump the version when changing the app shell (HTML, CSS, JS, or icons).
-const CACHE = 'srs-shell-v7';
+const CACHE = 'srs-shell-v8';
 const LOCAL = [
-  './', './index.html', './style.css', './manifest.webmanifest',
+  './', './index.html', './style.css',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',
   './src/app.js', './src/pwa.js', './src/audio.js', './src/db.js', './src/drive.js',
   './src/llm.js', './src/prefs.js', './src/schedule.js', './src/store.js', './src/ui.js', './src/util.js',
@@ -19,7 +19,7 @@ const shell = new Set([...LOCAL.map((path) => new URL(path, self.registration.sc
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(
     [...shell].map((url) => new Request(url, { cache: 'reload', mode: 'cors' })),
-  )));
+  )).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {
