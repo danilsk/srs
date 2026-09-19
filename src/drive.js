@@ -84,7 +84,7 @@ async function gfetch(url, opts = {}) {
 const q = (s) => encodeURIComponent(s);
 
 async function listFiles(parent) {
-  const r = await gfetch(`${API}/files?q=${q(`'${parent}' in parents and trashed=false`)}&fields=files(id,name,modifiedTime,mimeType)&pageSize=1000`);
+  const r = await gfetch(`${API}/files?q=${q(`'${parent}' in parents and trashed=false`)}&fields=files(id,name,modifiedTime,mimeType,appProperties)&pageSize=1000`);
   return (await r.json()).files || [];
 }
 
@@ -162,16 +162,20 @@ async function flushTrash() {
   await db.meta.set('trash', trash);
 }
 
-async function ensureFolders() {
-  if (!meta) meta = await db.meta.get('drive', { folderId: null, audioFolderId: null, lockId: null, files: {} });
+const emptyMeta = () => ({ folderId: null, audioFolderId: null, lockId: null, files: {} });
+
+// Lists the sync folder, creating it on first use or if it disappeared from Drive.
+async function listRoot() {
+  if (!meta) meta = await db.meta.get('drive', emptyMeta());
   if (meta.folderId) {
-    try { await listFiles(meta.folderId); return; }
-    catch (e) { if (!/404/.test(e.message)) throw e; meta = { folderId: null, audioFolderId: null, lockId: null, files: {} }; }
+    try { return await listFiles(meta.folderId); }
+    catch (e) { if (!/404/.test(e.message)) throw e; meta = emptyMeta(); }
   }
   meta.folderId = (await findFolder('srs')) || (await createFolder('srs'));
   meta.audioFolderId = (await findFolder('audio', meta.folderId)) || (await createFolder('audio', meta.folderId));
   meta.lockId = null;
   await saveMeta();
+  return listFiles(meta.folderId);
 }
 
 // ---- lock --------------------------------------------------------------
@@ -184,18 +188,35 @@ const uaShort = () => {
   return `${b}${os ? ' on ' + os : ''}`;
 };
 
+// Lock state lives in lock.json's appProperties so a folder listing already carries it.
+const lockOf = (p) => ({ clientId: p.clientId, ua: p.ua, ts: +p.ts, released: p.released === '1' });
+
 async function readLock(files) {
-  const f = (files || await listFiles(meta.folderId)).find((x) => x.name === 'lock.json');
+  let f;
+  if (files) f = files.find((x) => x.name === 'lock.json');
+  else if (meta.lockId) {
+    try { f = await (await gfetch(`${API}/files/${meta.lockId}?fields=id,trashed,appProperties`)).json(); }
+    catch (e) { if (!/404/.test(e.message)) throw e; }
+    if (f?.trashed) f = null;
+  } else f = (await listFiles(meta.folderId)).find((x) => x.name === 'lock.json');
   meta.lockId = f?.id || null;
   if (!f) return null;
+  if (f.appProperties?.clientId) return lockOf(f.appProperties);
   try { return await downloadJson(f.id); } catch { return null; }
 }
 
 const heldByOther = (lock) => !!lock && lock.clientId !== me() && !lock.released && now() - lock.ts < LOCK_TTL;
 
 async function writeLock(released = false, keepalive = false) {
-  const r = await upload('lock.json', jsonBlob({ clientId: me(), ua: uaShort(), ts: now(), released }), meta.lockId, meta.folderId, keepalive);
-  meta.lockId = r.id;
+  const appProperties = { clientId: me(), ua: uaShort(), ts: String(now()), released: released ? '1' : '0' };
+  const opts = { headers: { 'Content-Type': 'application/json' }, keepalive };
+  let r = null;
+  if (meta.lockId) {
+    try { r = await gfetch(`${API}/files/${meta.lockId}?fields=id`, { ...opts, method: 'PATCH', body: JSON.stringify({ appProperties }) }); }
+    catch (e) { if (!/404/.test(e.message)) throw e; }
+  }
+  if (!r) r = await gfetch(`${API}/files?fields=id`, { ...opts, method: 'POST', body: JSON.stringify({ name: 'lock.json', parents: [meta.folderId], appProperties }) });
+  meta.lockId = (await r.json()).id;
   sync.lockSince = released ? null : (sync.lockSince || now());
 }
 
@@ -234,8 +255,7 @@ function clearRetry() { clearTimeout(retryTimer); retryTimer = null; retries = 0
 
 // ---- sync --------------------------------------------------------------
 
-async function pull() {
-  const files = await listFiles(meta.folderId);
+async function pull(files) {
   const remote = new Map(files.filter((f) => /^deck-.*\.json$/.test(f.name)).map((f) => [f.name, f]));
   for (const deck of [...store.decks]) {
     const name = fname(deck.id);
@@ -244,6 +264,7 @@ async function pull() {
       delete meta.files[name];
     }
   }
+  const changed = [];
   for (const [name, f] of remote) {
     const deckId = name.slice(5, -5);
     if (store.dirty.has(deckId) || store.deleted.has(deckId)) {
@@ -251,28 +272,31 @@ async function pull() {
       continue;
     }
     if (meta.files[name]?.modifiedTime === f.modifiedTime && store.deck(deckId)) continue;
+    changed.push([name, f]);
+  }
+  await Promise.all(changed.map(async ([name, f]) => {
     const data = await downloadJson(f.id);
-    if (!data?.deck?.id) continue;
+    if (!data?.deck?.id) return;
     await store.replaceDeck(data.deck, data.cards || []);
     meta.files[name] = { id: f.id, modifiedTime: f.modifiedTime };
-  }
+  }));
   await saveMeta();
-  return files;
 }
 
-async function push() {
+async function push(files) {
   if (!holding() && sync.status !== 'connecting') return;
   if (busy) { rerun = true; return; }
   busy = true;
   try {
     setStatus('pushing');
-    const remote = new Map((await listFiles(meta.folderId)).map((f) => [f.name, f]));
+    let remote = null;
     const conflicts = [];
     for (const deckId of [...store.dirty]) {
       const rev = store.rev(deckId);
       const deck = store.deck(deckId);
       if (!deck) { await store.clearDirty(deckId); continue; }
       const name = fname(deckId);
+      remote ||= new Map((files || await listFiles(meta.folderId)).map((f) => [f.name, f]));
       const current = remote.get(name)?.modifiedTime;
       const known = meta.files[name];
       // Drive changed since this device last pulled or pushed, or the file was trashed there
@@ -326,17 +350,16 @@ async function fullSync() {
   if (busy) { rerun = true; return; }
   setStatus('connecting');
   try {
-    await ensureFolders();
-    const lock = await readLock();
+    const files = await listRoot();
+    const lock = await readLock(files);
     if (heldByOther(lock)) { sync.lockInfo = lock; setStatus('locked'); return; }
-    await writeLock();
     setStatus('pulling');
-    await pull();
+    await Promise.all([writeLock(), pull(files)]);
     sync.pulled = true;
     startHeartbeat();
     clearRetry();
     setStatus('synced');
-    await push();
+    await push(files);
   } catch (e) { handleErr(e); }
 }
 
