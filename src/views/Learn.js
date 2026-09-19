@@ -91,7 +91,7 @@ export function Learn({ deck, onAdd, onEdit, keysEnabled, status }) {
 
   const top = html`<header class="lt">
     <a class="back" href=${`#/deck/${deck.id}/cards`} title="deck">‹ <b>${deck.name}</b></a>
-    <span class="counts"><span>new <b>${stats.newLeft}</b></span><span>due <b>${stats.due}</b></span><span>done <b>${done}</b></span><span>left <b>${live.length}</b></span></span>
+    <span class="counts">${[['new', stats.newLeft], ['due', stats.due], ['done', done], ['left', live.length]].map(([k, v]) => html`<span key=${k} class=${`n-${k}${v ? '' : ' zero'}`}>${k} <b>${v}</b></span>`)}</span>
     <span class="spacer"></span>
     ${status}
     <button class="ghost sm" onClick=${() => onAdd()}>+ Add <kbd>N</kbd></button>

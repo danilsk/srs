@@ -22,8 +22,8 @@ export function Decks({ onAdd }) {
       return html`<div class="deck" key=${d.id}>
         <div><a href=${`#/deck/${d.id}/cards`} class="name">${d.name}</a><span class="lang">${d.targetLang} → ${d.nativeLang}</span></div>
         <div class="stats">
-          <span class=${s.newLeft ? '' : 'zero'}>new <b>${s.newLeft}</b><span class="muted">/${d.newPerDay}</span></span>
-          <span class=${s.due ? '' : 'zero'}>due <b>${s.due}</b></span>
+          <span class=${'n-new' + (s.newLeft ? '' : ' zero')}>new <b>${s.newLeft}</b><span class="muted">/${d.newPerDay}</span></span>
+          <span class=${'n-due' + (s.due ? '' : ' zero')}>due <b>${s.due}</b></span>
           <span>total <b>${s.total}</b></span>
         </div>
         <div class="row">
