@@ -49,16 +49,25 @@ async function getToken(interactive) {
   await loadGis();
   return new Promise((res, rej) => {
     const client = google.accounts.oauth2.initTokenClient({
-      client_id: prefs.get('gClientId'), scope: SCOPE,
+      client_id: prefs.get('gClientId'), scope: SCOPE, hint: localStorage.getItem('srs.gEmail') || undefined,
       callback: (r) => {
         if (r.error) return rej(new Error(r.error_description || r.error));
         localStorage.setItem('srs.gToken', JSON.stringify({ token: r.access_token, exp: now() + r.expires_in * 1000 }));
+        rememberEmail(r.access_token);
         res(r.access_token);
       },
       error_callback: (e) => rej(new Error(e.message || e.type || 'sign-in failed')),
     });
     client.requestAccessToken({ prompt: '' });
   });
+}
+
+async function rememberEmail(token) {
+  try {
+    const r = await fetch(`${API}/about?fields=user(emailAddress)`, { headers: { Authorization: `Bearer ${token}` } });
+    const email = (await r.json()).user?.emailAddress;
+    if (email) localStorage.setItem('srs.gEmail', email);
+  } catch (e) { console.warn('sync', e); }
 }
 
 async function gfetch(url, opts = {}) {
@@ -363,6 +372,7 @@ export const sync = {
     if (holding()) await writeLock(true).catch(() => {});
     prefs.set('driveOn', '');
     localStorage.removeItem('srs.gToken');
+    localStorage.removeItem('srs.gEmail');
     setStatus('off');
   },
   syncNow: () => fullSync(),
