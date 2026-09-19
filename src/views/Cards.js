@@ -79,7 +79,7 @@ export function Cards({ deck, onAdd, onOpen, keysEnabled }) {
           const blob = await generateAudio(deck, cur.front);
           const key = uid();
           await store.saveAudio(key, blob);
-          if (cur.audio) { store.deleteAudio(cur.audio.key); sync.deleteRemoteAudio(cur.audio.driveId); }
+          if (cur.audio) { store.deleteAudio(cur.audio.key); sync.deleteRemoteAudio(deck.id, cur.audio.driveId); }
           await store.saveCard({ ...cur, audio: { key, driveId: null, mime: blob.type } });
         }
       } catch (e) { bus.error(`${c.front}: ${e.message}`); }

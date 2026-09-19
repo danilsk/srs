@@ -114,7 +114,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
       }
       if (existing?.audio && existing.audio.key !== audio?.key) {
         store.deleteAudio(existing.audio.key);
-        sync.deleteRemoteAudio(existing.audio.driveId);
+        sync.deleteRemoteAudio(deckId, existing.audio.driveId);
       }
       const saved = { ...draft, front, senses, audio };
       await store.saveCard(saved);

@@ -100,6 +100,7 @@ export function normCard(c = {}, deckId) {
     translation: typeof s?.translation === 'string' ? s.translation : '',
     fields: isObj(s?.fields) ? s.fields : {},
   }));
+  const step = Number.isInteger(c.step) ? c.step : -1;
   return {
     ...base, ...c,
     id: strOr(c.id, base.id),
@@ -108,8 +109,8 @@ export function normCard(c = {}, deckId) {
     senses: senses.length ? senses : base.senses,
     fields: isObj(c.fields) ? c.fields : {},
     audio: isObj(c.audio) && c.audio.key ? c.audio : null,
-    step: Number.isInteger(c.step) ? c.step : -1,
-    due: numOr(c.due, null), lastReview: numOr(c.lastReview, null),
+    // A scheduled card without a due date would be neither new nor due: make it due now.
+    step, due: step < 0 ? null : numOr(c.due, base.created), lastReview: numOr(c.lastReview, null),
     reviews: Math.max(0, numOr(c.reviews, 0)), lapses: Math.max(0, numOr(c.lapses, 0)),
     created: numOr(c.created, base.created), updated: numOr(c.updated, base.updated),
   };
@@ -176,7 +177,7 @@ export const store = {
     await db.del('decks', id);
     await db.delMany('cards', cards.map((c) => c.id));
     await db.delMany('audio', cards.filter((c) => c.audio).map((c) => c.audio.key));
-    this.onAudioDeleted?.(cards.map((c) => c.audio?.driveId).filter(Boolean));
+    this.onAudioDeleted?.(id, cards.map((c) => c.audio?.driveId).filter(Boolean));
     this.dirty.delete(id);
     this.deleted.add(id);
     await db.meta.set('dirty', [...this.dirty]);
@@ -209,8 +210,10 @@ export const store = {
     this.cards = this.cards.filter((c) => !ids.includes(c.id));
     await db.delMany('cards', ids);
     await db.delMany('audio', gone.filter((c) => c.audio).map((c) => c.audio.key));
-    this.onAudioDeleted?.(gone.map((c) => c.audio?.driveId).filter(Boolean));
-    for (const d of new Set(gone.map((c) => c.deckId))) await this.markDirty(d);
+    for (const d of new Set(gone.map((c) => c.deckId))) {
+      this.onAudioDeleted?.(d, gone.filter((c) => c.deckId === d).map((c) => c.audio?.driveId).filter(Boolean));
+      await this.markDirty(d);
+    }
     emit();
   },
 

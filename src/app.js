@@ -71,8 +71,8 @@ function App() {
   const openCard = (deckId, cardId = null, mode = 'edit', ids = []) => setModal({ deckId, cardId, view: mode === 'view', ids, n: Math.random() });
   const close = () => setModal(null);
   const showLock = (s.status === 'locked' && !lockDismissed) || route.view === 'lock';
-  const showGate = !showLock && s.enabled && !gateDismissed && route.view !== 'settings' &&
-    (s.status === 'signin' || (!s.pulled && ['off', 'connecting', 'pulling', 'offline', 'error'].includes(s.status)));
+  const showGate = !showLock && s.enabled && !gateDismissed && route.view !== 'settings' && !s.pulled &&
+    ['off', 'connecting', 'pulling', 'offline', 'error', 'signin'].includes(s.status);
   const blocked = showLock || showGate;
   useEffect(() => { setModal(null); }, [route.view, route.deckId]);
 

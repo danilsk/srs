@@ -8,11 +8,13 @@ const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER = 'application/vnd.google-apps.folder';
 const LOCK_TTL = 10 * 60e3, HEARTBEAT = 2 * 60e3;
+const TIMEOUT = 60e3, UPLOAD_TIMEOUT = 180e3, RETRY_MIN = 30e3, RETRY_MAX = 5 * 60e3;
 
 class NeedSignIn extends Error { constructor() { super('sign in to Google to sync'); } }
 
 let meta = null;
 let heartbeat = null;
+let retryTimer = null, retries = 0;
 let busy = false, rerun = false;
 const listeners = new Set();
 const emit = () => { for (const fn of listeners) fn(); };
@@ -61,7 +63,8 @@ async function getToken(interactive) {
 
 async function gfetch(url, opts = {}) {
   const token = await getToken(false);
-  const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}` } });
+  const signal = opts.signal || AbortSignal.timeout(TIMEOUT);
+  const r = await fetch(url, { ...opts, signal, headers: { ...(opts.headers || {}), Authorization: `Bearer ${token}` } });
   if (r.status === 401) { localStorage.removeItem('srs.gToken'); throw new NeedSignIn(); }
   if (!r.ok) throw new Error(`Drive ${r.status}: ${(await r.text()).slice(0, 200)}`);
   return r;
@@ -103,13 +106,13 @@ async function upload(name, blob, existingId, parent, keepalive = false) {
   if (existingId) {
     try {
       const r = await gfetch(`${UPLOAD}/files/${existingId}?uploadType=media&fields=id,modifiedTime`, {
-        method: 'PATCH', headers: { 'Content-Type': blob.type }, body: blob, keepalive,
+        method: 'PATCH', headers: { 'Content-Type': blob.type }, body: blob, keepalive, signal: AbortSignal.timeout(UPLOAD_TIMEOUT),
       });
       return r.json();
     } catch (e) { if (!/404/.test(e.message)) throw e; }
   }
   const r = await gfetch(`${UPLOAD}/files?uploadType=multipart&fields=id,modifiedTime`, {
-    method: 'POST', ...multipart({ name, parents: [parent] }, blob), keepalive,
+    method: 'POST', ...multipart({ name, parents: [parent] }, blob), keepalive, signal: AbortSignal.timeout(UPLOAD_TIMEOUT),
   });
   return r.json();
 }
@@ -125,6 +128,30 @@ async function trashFile(id) {
 
 const fname = (deckId) => `deck-${deckId}.json`;
 const saveMeta = () => db.meta.set('drive', meta);
+
+// Trashing before the deck file is pushed would leave the Drive deck pointing at trashed audio.
+let trash = null;
+async function loadTrash() { if (!trash) trash = await db.meta.get('trash', []); return trash; }
+async function queueTrash(deckId, ids) {
+  await loadTrash();
+  for (const id of ids) if (id) trash.push({ id, deckId });
+  await db.meta.set('trash', trash);
+}
+async function dropTrash(deckId) {
+  await loadTrash();
+  trash = trash.filter((t) => t.deckId !== deckId);
+  await db.meta.set('trash', trash);
+}
+async function flushTrash() {
+  await loadTrash();
+  for (const t of [...trash]) {
+    if (store.dirty.has(t.deckId)) continue;
+    try { await trashFile(t.id); }
+    catch (e) { await db.meta.set('trash', trash); throw e; }
+    trash = trash.filter((x) => x !== t);
+  }
+  await db.meta.set('trash', trash);
+}
 
 async function ensureFolders() {
   if (!meta) meta = await db.meta.get('drive', { folderId: null, audioFolderId: null, lockId: null, files: {} });
@@ -180,10 +207,21 @@ const holding = () => ['synced', 'pushing', 'pulling', 'conflict'].includes(sync
 function handleErr(e) {
   console.warn('sync', e);
   stopHeartbeat();
-  if (e instanceof NeedSignIn) setStatus('signin');
-  else if (e instanceof TypeError) setStatus('offline');
+  if (e instanceof NeedSignIn) return setStatus('signin');
+  if (e instanceof TypeError || e.name === 'TimeoutError') setStatus('offline');
   else setStatus('error', e.message);
+  scheduleRetry();
 }
+
+function scheduleRetry() {
+  clearTimeout(retryTimer);
+  const delay = Math.min(RETRY_MIN * 2 ** retries, RETRY_MAX);
+  retries++;
+  retryTimer = setTimeout(() => {
+    if (document.visibilityState === 'visible' && sync.enabled && ['offline', 'error'].includes(sync.status)) fullSync();
+  }, delay);
+}
+function clearRetry() { clearTimeout(retryTimer); retryTimer = null; retries = 0; }
 
 // ---- sync --------------------------------------------------------------
 
@@ -227,8 +265,10 @@ async function push() {
       if (!deck) { await store.clearDirty(deckId); continue; }
       const name = fname(deckId);
       const current = remote.get(name)?.modifiedTime;
-      // Drive changed since this device last pulled or pushed: never overwrite unseen work.
-      if (current && current !== meta.files[name]?.modifiedTime) { conflicts.push(deckId); continue; }
+      const known = meta.files[name];
+      // Drive changed since this device last pulled or pushed, or the file was trashed there
+      // (a PATCH would land in the trash): never overwrite unseen work.
+      if (current ? current !== known?.modifiedTime : known?.id) { conflicts.push(deckId); continue; }
       const cards = store.cardsOf(deckId);
       for (const c of cards) {
         if (!c.audio || c.audio.driveId) continue;
@@ -250,8 +290,10 @@ async function push() {
       await store.clearDeleted(id);
     }
     await saveMeta();
+    await flushTrash();
     sync.lastSync = now();
     sync.conflicts = conflicts;
+    clearRetry();
     setStatus(conflicts.length ? 'conflict' : 'synced');
   } finally {
     busy = false;
@@ -283,6 +325,7 @@ async function fullSync() {
     await pull();
     sync.pulled = true;
     startHeartbeat();
+    clearRetry();
     setStatus('synced');
     await push();
   } catch (e) { handleErr(e); }
@@ -295,7 +338,7 @@ export const sync = {
 
   async start() {
     store.onDirty = () => { if (holding()) pushSoon(); };
-    store.onAudioDeleted = (ids) => { if (holding()) for (const id of ids) trashFile(id).catch(() => {}); };
+    store.onAudioDeleted = (deckId, ids) => { queueTrash(deckId, ids).catch(console.warn); };
     document.addEventListener('visibilitychange', () => {
       if (!sync.enabled) return;
       if (document.visibilityState === 'visible') {
@@ -316,6 +359,7 @@ export const sync = {
   },
   async disconnect() {
     stopHeartbeat();
+    clearRetry();
     if (holding()) await writeLock(true).catch(() => {});
     prefs.set('driveOn', '');
     localStorage.removeItem('srs.gToken');
@@ -330,10 +374,11 @@ export const sync = {
     const name = fname(deckId);
     if (keep === 'drive') {
       await store.clearDirty(deckId);
+      await dropTrash(deckId);
       if (meta.files[name]) meta.files[name].modifiedTime = null;
     } else {
       const f = (await listFiles(meta.folderId)).find((x) => x.name === name);
-      if (f) meta.files[name] = { id: f.id, modifiedTime: f.modifiedTime };
+      if (f) meta.files[name] = { id: f.id, modifiedTime: f.modifiedTime }; else delete meta.files[name];
     }
     await saveMeta();
     sync.conflicts = sync.conflicts.filter((id) => id !== deckId);
@@ -349,7 +394,7 @@ export const sync = {
     await store.saveAudio(card.audio.key, blob);
     return blob;
   },
-  deleteRemoteAudio(driveId) { if (driveId && holding()) trashFile(driveId).catch(() => {}); },
+  deleteRemoteAudio(deckId, driveId) { if (driveId) queueTrash(deckId, [driveId]).catch(console.warn); },
 
   async info() {
     if (!meta?.folderId) return null;

@@ -14,6 +14,6 @@ export function Gate({ onDismiss }) {
     <p class="muted">${sync.error || 'Google Drive is not reachable.'}</p>
     <div class="row"><button onClick=${() => sync.syncNow()}>Retry</button></div>`;
   return html`<div class="lock">${body}
-    ${!busy && html`<p class="note" style="margin-top:20px"><span class="link" onClick=${onDismiss}>Continue offline</span> · changes stay on this device and sync next time.</p>`}
+    <p class="note" style="margin-top:20px"><span class="link" onClick=${onDismiss}>Continue offline</span> · changes stay on this device and sync next time.</p>
   </div>`;
 }

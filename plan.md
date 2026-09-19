@@ -73,10 +73,12 @@ DayCounter { deckId, date, newShown }
 - **Lock**: on open, read `lock.json`. If it belongs to another client and is younger than 10 min → lock screen ("in use elsewhere · wait / take over"). Otherwise write our lock and refresh it every 2 min while the tab is visible. Release on `pagehide` / explicit "Done".
 - **Pull** after acquiring the lock: download deck files whose `modifiedTime` > local. Audio downloaded lazily on first play, cached in IndexedDB.
 - **Push**: debounced 5 s after any change; whole deck file overwritten (single writer → no merging). New audio uploaded right away.
-- **Conflict check**: before uploading a dirty deck, push compares the file's Drive `modifiedTime` with the one recorded at the last pull/push. A mismatch means another device wrote meanwhile: the deck is not pushed, status becomes `conflict`, and Settings offers "Keep this device" / "Keep Drive". No merging.
-- **Recovery**: deck and audio files are trashed, not deleted (30 days in Drive trash). Drive keeps revisions of `deck-<id>.json`; a downloaded revision imports directly via Settings → Import.
+- **Conflict check**: before uploading a dirty deck, push compares the file's Drive `modifiedTime` with the one recorded at the last pull/push. A mismatch, or a file that was trashed on Drive meanwhile, means another device wrote: the deck is not pushed, status becomes `conflict`, and Settings offers "Keep this device" / "Keep Drive". No merging. For a trashed file, "Keep this device" re-creates it and "Keep Drive" removes the deck locally.
+- **Audio trash queue**: Drive audio of deleted/replaced cards is queued (`meta.trash`) and trashed at the end of a push, only for decks that were pushed or are gone. "Keep Drive" drops the queue for that deck.
+- **Recovery**: deck and audio files are trashed, not deleted (30 days in Drive trash). Drive keeps revisions of `deck-<id>.json`; a downloaded revision imports directly via Settings → Import. On a device that never synced that deck the import shows a conflict: choose "Keep this device".
+- **Errors**: every Drive request times out (60 s, uploads 180 s). After an offline/error status the sync retries by itself while the tab is visible, with backoff from 30 s up to 5 min.
 - Sync status always visible in the header (synced / pushing / offline / locked / conflict).
-- **Gate**: with Drive enabled, the app shows "Syncing…" until the first pull of the session completes. An expired token shows an explicit "Sign in with Google" screen; offline or error shows Retry. "Continue offline" dismisses the gate for the session. The same screen returns if the token expires mid-session.
+- **Gate**: with Drive enabled, the app shows "Syncing…" until the first pull of the session completes. An expired token shows an explicit "Sign in with Google" screen; offline or error shows Retry. "Continue offline" dismisses the gate for the session. After the first pull the gate never returns: a token that expires mid-session only shows "sign in to sync" in the header, so a running review keeps its queue.
 
 ## Screens
 
