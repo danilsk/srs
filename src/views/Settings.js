@@ -86,7 +86,7 @@ export function Settings() {
 
     <h3>Install app</h3>
     ${isInstalled() ? html`<p class="small muted">Running as an installed app.</p>` : html`
-      ${canInstall() && html`<button class="primary" onClick=${() => installApp().catch(bus.error)}>Install srs</button>`}
+      ${canInstall() && html`<button class="primary" onClick=${() => installApp().catch(bus.error)}>Install SRS</button>`}
       <p class="small muted">iPhone / iPad: in Safari, open Share → Add to Home Screen → Open as Web App → Add.</p>
       <p class="small muted">Android: open the browser menu → Install app or Add to Home screen.</p>
     `}

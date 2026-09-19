@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "srs — Dictionary & Flashcards",
-  "short_name": "srs",
+  "name": "SRS — Dictionary & Flashcards",
+  "short_name": "SRS",
   "description": "Your vocabulary, flashcards, and spaced repetition.",
   "lang": "en",
   "start_url": "./",
