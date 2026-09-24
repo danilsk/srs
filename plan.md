@@ -55,7 +55,7 @@ DayCounter { deckId, date, newShown }
 
 ## OpenRouter
 
-- Key + model names in `localStorage`. Defaults: text `openai/gpt-6-luna`, audio `google/gemini-3.1-flash-tts-preview`.
+- Key + model names in `localStorage`. Defaults: text `openai/gpt-6-luna`, audio `google/gemini-3.8-flash-tts`.
 - Generate: one chat-completions call with `response_format: { type: "json_schema", strict: true }`. The schema is built from the deck config:
   ```
   { front_suggestion: string|null,
