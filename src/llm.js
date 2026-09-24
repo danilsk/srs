@@ -99,9 +99,11 @@ async function tts(deck, text, signal) {
   const r = await fetch('https://openrouter.ai/api/v1/audio/speech', {
     method: 'POST', signal,
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'srs' },
+    // Without these headers Gemini 3.8 reads the style notes aloud.
     body: JSON.stringify({
       model: prefs.get('ttsModel'), voice: deck.tts?.voice || 'Iapetus',
-      input: `${ttsGuidance(deck)}\n\n"${text.replace(/"/g, "'")}"`, response_format: 'pcm',
+      input: `# AUDIO PROFILE: Language tutor\n\n### DIRECTOR'S NOTES\nStyle: ${ttsGuidance(deck)}\n\n#### TRANSCRIPT\n${text}`,
+      response_format: 'pcm',
     }),
   });
   const type = r.headers.get('content-type') || '';
