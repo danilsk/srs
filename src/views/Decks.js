@@ -42,5 +42,6 @@ export function Decks({ onAdd }) {
           <div class="row"><button class="primary" onClick=${create}>Create</button><button class="ghost" onClick=${() => setForm(null)}>Cancel</button></div>
         </div>`
       : html`<p style="margin-top:22px"><button class="ghost" onClick=${() => setForm({ name: '', target: '', native: '' })}>+ New deck</button></p>`}
+    <p class="talk-link"><a href="#/talk"><button class="ghost sm">🎙 Talk</button></a></p>
   </section>`;
 }

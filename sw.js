@@ -1,12 +1,12 @@
 // Bump the version when changing the app shell (HTML, CSS, JS, or icons).
-const CACHE = 'srs-shell-v11';
+const CACHE = 'srs-shell-v12';
 const LOCAL = [
   './', './index.html', './style.css',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',
   './src/app.js', './src/pwa.js', './src/audio.js', './src/db.js', './src/drive.js',
-  './src/llm.js', './src/prefs.js', './src/schedule.js', './src/store.js', './src/ui.js', './src/util.js',
+  './src/llm.js', './src/mic.js', './src/prefs.js', './src/schedule.js', './src/store.js', './src/ui.js', './src/util.js',
   './src/views/CardModal.js', './src/views/Cards.js', './src/views/Decks.js',
-  './src/views/DeckSettings.js', './src/views/Gate.js', './src/views/Learn.js', './src/views/Lock.js', './src/views/Settings.js',
+  './src/views/DeckSettings.js', './src/views/Gate.js', './src/views/Learn.js', './src/views/Lock.js', './src/views/Settings.js', './src/views/Talk.js',
 ];
 const MODULES = [
   'https://esm.sh/preact@10.24.3/es2022/preact.mjs',

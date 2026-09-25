@@ -52,6 +52,14 @@ export function Settings() {
     </div>
     <div class="row"><button onClick=${runTest} disabled=${!prefs.get('orKey')}>Test ⚡</button>${test && html`<span class="muted small">${test}</span>`}</div>
 
+    <h3>Talk<${Q} text="Speech-to-text takes a transcription model (e.g. openai/gpt-transcribe) or any chat model with audio input (e.g. google/gemini-3.8-flash, which also handles speakers mixing languages). The talk model translates, suggests replies and writes your messages; read-aloud uses the audio model above." /></h3>
+    <div class="g3">
+      <div class="f"><label>speech-to-text model</label><input placeholder=${DEFAULTS.sttModel} ...${bind('sttModel')} /></div>
+      <div class="f"><label>talk model</label><input placeholder=${DEFAULTS.talkModel} ...${bind('talkModel')} /></div>
+      <div class="f"><label>talk reasoning</label><select value=${prefs.get('talkEffort')} onChange=${(e) => { prefs.set('talkEffort', e.target.value); force((n) => n + 1); }}>
+        ${['minimal', 'low', 'medium', 'high'].map((v) => html`<option key=${v} value=${v}>${v}</option>`)}</select></div>
+    </div>
+
     <h3>Google Drive</h3>
     <div class="f"><label>OAuth client ID<${Q} text=${`Google Cloud console → Google Auth Platform → Clients → Create client, type Web application, authorized JavaScript origin = ${location.origin}. Drive API must be enabled. Scope used: drive.file (only files this app creates).`} /></label>
       <input placeholder="…apps.googleusercontent.com" ...${bind('gClientId')} disabled=${sync.enabled} /></div>

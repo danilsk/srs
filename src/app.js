@@ -11,11 +11,13 @@ import { Settings } from './views/Settings.js';
 import { Lock } from './views/Lock.js';
 import { Gate } from './views/Gate.js';
 import { CardModal } from './views/CardModal.js';
+import { Talk } from './views/Talk.js';
 
 function parseHash() {
   const h = location.hash.slice(1) || '/';
   if (h === '/settings') return { view: 'settings' };
   if (h === '/lock') return { view: 'lock' };
+  if (h === '/talk') return { view: 'talk' };
   const m = /^\/deck\/([^/]+)\/(learn|cards|settings)$/.exec(h);
   if (m) return { view: m[2] === 'settings' ? 'deckSettings' : m[2], deckId: m[1] };
   return { view: 'decks' };
@@ -70,8 +72,8 @@ function App() {
   const deck = route.deckId ? store.deck(route.deckId) : null;
   const openCard = (deckId, cardId = null, mode = 'edit', ids = []) => setModal({ deckId, cardId, view: mode === 'view', ids, n: Math.random() });
   const close = () => setModal(null);
-  const showLock = (s.status === 'locked' && !lockDismissed) || route.view === 'lock';
-  const showGate = !showLock && s.enabled && !gateDismissed && route.view !== 'settings' && !s.pulled &&
+  const showLock = (s.status === 'locked' && !lockDismissed && route.view !== 'talk') || route.view === 'lock';
+  const showGate = !showLock && s.enabled && !gateDismissed && route.view !== 'settings' && route.view !== 'talk' && !s.pulled &&
     ['off', 'connecting', 'pulling', 'offline', 'error', 'signin'].includes(s.status);
   const blocked = showLock || showGate;
   useEffect(() => { setModal(null); }, [route.view, route.deckId]);
@@ -100,6 +102,7 @@ function App() {
   if (showLock) view = html`<${Lock} onDismiss=${() => { setLockDismissed(true); if (route.view === 'lock') location.hash = '#/'; }} />`;
   else if (showGate) view = html`<${Gate} onDismiss=${() => setGateDismissed(true)} />`;
   else if (route.view === 'settings') view = html`<${Settings} />`;
+  else if (route.view === 'talk') view = html`<${Talk} />`;
   else if (route.deckId && !deck) view = html`<div class="empty">deck not found · <a class="link" href="#/">decks</a></div>`;
   else if (route.view === 'learn') view = html`<${Learn} key=${deck.id} deck=${deck} keysEnabled=${keysEnabled} status=${html`<${SyncStatus} />`} onAdd=${() => openCard(deck.id)} onEdit=${(id) => openCard(deck.id, id)} />`;
   else if (route.view === 'cards') view = html`<${Cards} key=${deck.id} deck=${deck} keysEnabled=${keysEnabled} onAdd=${() => openCard(deck.id)} onOpen=${(id, mode, ids) => openCard(deck.id, id, mode, ids)} />`;
@@ -112,7 +115,7 @@ function App() {
     ${help && html`<${Help} onClose=${() => setHelp(false)} />`}
     <${Toast} />`;
   const guarded = guard(view, route.view + (route.deckId || ''));
-  if (route.view === 'learn' && deck && !blocked) return html`${guarded}${overlays}`;
+  if (((route.view === 'learn' && deck) || route.view === 'talk') && !blocked) return html`${guarded}${overlays}`;
 
   return html`
     <header class="top">

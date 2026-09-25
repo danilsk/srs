@@ -128,3 +128,88 @@ export async function testKey() {
   const data = await call({ model: prefs.get('textModel'), messages: [{ role: 'user', content: 'Reply with the single word: ok' }], max_tokens: 5 });
   return { ms: Math.round(performance.now() - t), text: data.choices?.[0]?.message?.content?.trim() };
 }
+
+function toBase64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+const chatStt = new Set();
+
+export async function transcribe(wav, langs, signal) {
+  const key = prefs.get('orKey');
+  if (!key) throw new Error('OpenRouter key is not set (settings)');
+  const model = prefs.get('sttModel'), data = toBase64(wav);
+  if (!chatStt.has(model)) {
+    const r = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+      method: 'POST', signal,
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'srs' },
+      body: JSON.stringify({ model, input_audio: { data, format: 'wav' }, language: langs.length === 1 ? langs[0].code : undefined }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && !d.error) return String(d.text || '').trim();
+    const msg = d.error?.message || `transcription ${r.status}`;
+    if (!/does not exist|not a valid model/i.test(msg)) throw Object.assign(new Error(msg), { status: r.status });
+    chatStt.add(model);
+  }
+  const names = langs.map((l) => l.name).join(', ');
+  const d = await call({
+    model, reasoning: { effort: 'minimal' }, response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: `Transcribe the speech. The speaker speaks ${langs.length > 1 ? `one of: ${names} (possibly mixing them)` : names}. Write it verbatim in the original language and script; never translate. Return JSON {"text": "..."}; use an empty string if there is no speech.` },
+      { role: 'user', content: [{ type: 'input_audio', input_audio: { data, format: 'wav' } }] },
+    ],
+  }, signal);
+  return String(parseContent(d.choices?.[0]?.message?.content).text || '').trim();
+}
+
+async function talkCall(name, system, user, schema, signal) {
+  const base = { model: prefs.get('talkModel'), reasoning: { effort: prefs.get('talkEffort') }, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
+  let data;
+  try {
+    data = await call({ ...base, response_format: { type: 'json_schema', json_schema: { name, strict: true, schema } } }, signal);
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    data = await call({ ...base, response_format: { type: 'json_object' } }, signal);
+  }
+  return parseContent(data.choices?.[0]?.message?.content);
+}
+
+const str = (description) => ({ type: 'string', description });
+const obj = (properties) => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
+const lines = (context) => context.length ? `Recent conversation, oldest first:\n${context.join('\n')}\n\n` : '';
+
+export async function interpret(text, { langs, mine, context }, signal) {
+  const codes = langs.map((l) => l.code);
+  const schema = obj({
+    lang: { type: 'string', enum: [...codes, 'other'] },
+    translation: str(`natural ${mine} translation of the utterance`),
+    question: { type: 'boolean' },
+    replies: { type: 'array', maxItems: 3, items: obj({ text: str('the reply, in the language of the utterance'), meaning: str(`${mine} translation of the reply`) }) },
+  });
+  const system = [
+    `You are a live interpreter for a user who speaks ${mine}. The people around them speak ${langs.map((l) => `${l.name} (${l.code})`).join(', ')}.`,
+    'You get the latest utterance, transcribed automatically (it may contain recognition errors), and a few earlier lines for context. Return JSON:',
+    `- lang: language of the utterance; "other" if it is none of ${codes.join(', ')}.`,
+    `- translation: faithful, natural ${mine} translation of the latest utterance only. Fix obvious recognition errors silently. Use an empty string if the transcript is recognition noise (subtitle credits, "thanks for watching", random syllables).`,
+    '- question: true if the utterance asks the user something or clearly expects an answer; false for "other".',
+    `- replies: when question is true, 3 short, common, natural replies the user could say, in the utterance's language, covering different answers (e.g. yes / no / ask to clarify); each with its ${mine} meaning. Otherwise [].`,
+  ].join('\n');
+  const r = await talkCall('hear', system, `${lines(context)}Latest utterance:\n${text}`, schema, signal);
+  const replies = r.question && Array.isArray(r.replies) ? r.replies.slice(0, 3).map((x) => ({ text: String(x.text || '').trim(), meaning: String(x.meaning || '').trim() })).filter((x) => x.text) : [];
+  return { lang: codes.includes(r.lang) ? r.lang : 'other', translation: String(r.translation || '').trim(), question: !!r.question, replies };
+}
+
+export async function compose(ask, { lang, mine, context }, signal) {
+  const schema = obj({ text: str(`the message in ${lang.name}`), meaning: str(`${mine} back-translation of the message`) });
+  const system = [
+    `The user is talking with people who speak ${lang.name}. Write what the user wants to say, in ${lang.name}: natural, polite, conversational and short, the way a native speaker would say it.`,
+    'The user writes in English or Russian. They may dictate the exact message or describe it ("ask how much it costs"); either way, write the message itself, addressed to the other person.',
+    'Use the recent conversation for context (what things refer to, formality). Return JSON with text and meaning.',
+  ].join('\n');
+  const r = await talkCall('say', system, `${lines(context)}What I want to say:\n${ask}`, schema, signal);
+  const text = String(r.text || '').trim();
+  if (!text) throw new Error('model returned no text');
+  return { text, meaning: String(r.meaning || '').trim() };
+}

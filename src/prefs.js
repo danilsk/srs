@@ -3,6 +3,9 @@ import { uid } from './util.js';
 export const DEFAULTS = {
   textModel: 'openai/gpt-6-luna',
   ttsModel: 'google/gemini-3.8-flash-tts',
+  sttModel: 'openai/gpt-transcribe',
+  talkModel: 'openai/gpt-6-luna',
+  talkEffort: 'medium',
   orKey: '',
   gClientId: '231977151347-rkp6ttr0imafmv00kae531cpmj49tto9.apps.googleusercontent.com',
   driveOn: '',
