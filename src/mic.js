@@ -67,13 +67,22 @@ export class Mic {
 
 const PRE = 0.4, HANG = 0.8, MIN_VOICED = 0.3, MAX_LEN = 25, WINDOW = 3;
 
+const threshold = (levels) => {
+  const s = [...levels].sort((a, b) => a - b);
+  return Math.max(0.006, (s[Math.floor(s.length / 10)] ?? 0) * 4);
+};
+
+export function hasSpeech(samples) {
+  const n = RATE / 50, levels = [];
+  for (let i = 0; i + n <= samples.length; i += n) levels.push(rmsOf(samples.subarray(i, i + n)));
+  const thr = threshold(levels);
+  return levels.filter((l) => l > thr).length / 50 >= MIN_VOICED;
+}
+
 export class Segmenter {
   constructor(onUtterance) { this.onUtterance = onUtterance; this.levels = []; this.reset(); }
   reset() { this.pre = []; this.cur = null; this.loud = 0; }
-  get threshold() {
-    const s = [...this.levels].sort((a, b) => a - b);
-    return Math.max(0.006, (s[Math.floor(s.length / 10)] ?? 0) * 4);
-  }
+  get threshold() { return threshold(this.levels); }
   push(chunk, rms = rmsOf(chunk)) {
     const dur = chunk.length / RATE;
     this.levels.push(rms);

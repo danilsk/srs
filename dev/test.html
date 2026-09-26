@@ -205,6 +205,7 @@ try {
   const feed = (a) => { for (let i = 0; i < a.length; i += 680) sg.push(a.subarray(i, i + 680)); };
   [[1, 0.001], [1.2, 0.2], [1.5, 0.001], [0.1, 0.2], [1.5, 0.001], [2, 0.2], [1, 0.001]].forEach(([s, a]) => feed(tone(s, a)));
   ok(utts.length === 2 && utts[0] > 1.2 && utts[0] < 2.8 && utts[1] > 2, 'segmenter splits speech at pauses and skips a click: ' + utts.map((u) => u.toFixed(2)));
+  ok(!M.hasSpeech(tone(2, 0)) && !M.hasSpeech(tone(2, 0.02)) && M.hasSpeech(new Float32Array([...tone(1, 0.001), ...tone(1, 0.2)])), 'hasSpeech skips silence and steady sound, passes a loud part');
   const w = M.toWav(new Float32Array([0, 1, -1]));
   ok(w.length === 50 && String.fromCharCode(...w.subarray(0, 4)) === 'RIFF' && new DataView(w.buffer).getInt16(46, true) === 32767, 'toWav writes 16 kHz PCM');
   location.hash = '#/talk'; await sleep(150);

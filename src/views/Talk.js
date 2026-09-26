@@ -1,6 +1,6 @@
 import { html, useState, useEffect, useRef, isEditing } from '../ui.js';
-import { Mic, Segmenter, toWav, concat, rmsOf, RATE } from '../mic.js';
-import { transcribe, interpret, compose, generateAudio } from '../llm.js';
+import { Mic, Segmenter, toWav, concat, rmsOf, hasSpeech } from '../mic.js';
+import { hear, compose, generateAudio } from '../llm.js';
 import { uid, bus } from '../util.js';
 
 export const LANGS = [
@@ -63,44 +63,35 @@ export function Talk() {
   const clear = () => { if (confirm('Clear the conversation?')) { wavs.current.clear(); update(() => []); } };
 
   const listen = async (id) => {
-    const e = find(id);
-    if (!e) return;
+    const wav = wavs.current.get(id);
+    if (!find(id) || !wav) return drop(id);
     const { lang: pick, mine: my, always: auto } = cur.current;
+    patch(id, { status: 'busy', error: null });
     try {
-      let src = e.src;
-      if (!src) {
-        const wav = wavs.current.get(id);
-        if (!wav) return drop(id);
-        patch(id, { status: 'stt', error: null });
-        try { src = await transcribe(wav, pick === 'all' ? LANGS : [LANG[pick]]); }
-        catch (err) {
-          // Noise-only clips come back as a bare 400.
-          if (err.status !== 400) throw err;
-        }
-        if (!src) {
-          if (!auto) bus.toast('Nothing recognized');
-          return drop(id);
-        }
-        wavs.current.delete(id);
+      const r = await hear(wav, { langs: pick === 'all' ? LANGS : [LANG[pick]], mine: MINE[my] });
+      if (!r.src || !r.translation) {
+        if (!auto) bus.toast('Nothing heard');
+        return drop(id);
       }
-      patch(id, { src, status: 'llm', error: null });
-      const r = await interpret(src, { langs: LANGS, mine: MINE[my], context: context(id) });
-      if (!r.translation) return drop(id);
+      wavs.current.delete(id);
       patch(id, { ...r, status: 'done' });
       if (r.lang !== 'other' && cur.current.lang === 'all') pickSay(r.lang);
     } catch (err) { patch(id, { status: 'error', error: err.message }); }
   };
-  const hear = (samples) => {
+  const heard = (samples) => {
+    // Gemini transcribes pure silence as made-up speech, so silent clips never leave the device.
+    if (!hasSpeech(samples)) { if (!cur.current.always) bus.toast('Nothing heard'); return; }
+    stick.current = true;
     const id = uid();
     wavs.current.set(id, toWav(samples));
-    update((l) => [...l, { id, who: 'them', status: 'stt' }]);
+    update((l) => [...l, { id, who: 'them', status: 'busy' }]);
     listen(id);
   };
 
   const write = async (id) => {
     const e = find(id);
     if (!e) return;
-    patch(id, { status: 'llm', error: null });
+    patch(id, { status: 'busy', error: null });
     try {
       const r = await compose(e.ask, { lang: LANG[e.lang], mine: MINE[cur.current.mine], context: context(id) });
       patch(id, { ...r, status: 'done' });
@@ -109,7 +100,7 @@ export function Talk() {
   };
   const say = (ask) => {
     const id = uid();
-    update((l) => [...l, { id, who: 'me', ask, lang: sayLang, status: 'llm' }]);
+    update((l) => [...l, { id, who: 'me', ask, lang: sayLang, status: 'busy' }]);
     setDraft('');
     stick.current = true;
     write(id);
@@ -189,7 +180,7 @@ export function Talk() {
   const openMic = async () => {
     clearTimeout(idle.current);
     mic.current ||= new Mic((c) => fns.current.onChunk(c));
-    seg.current ||= new Segmenter((s) => fns.current.hear(s));
+    seg.current ||= new Segmenter((s) => fns.current.heard(s));
     await mic.current.start();
   };
   const releaseMic = () => {
@@ -220,7 +211,7 @@ export function Talk() {
     setRec(null);
     if (!cur.current.always) idleRelease();
     const s = concat(p.chunks);
-    if (s.length / RATE >= 0.4) { stick.current = true; hear(s); }
+    heard(s);
   };
   const onDown = (e) => {
     if (e.button > 0) return;
@@ -240,7 +231,7 @@ export function Talk() {
     if (always) { setAlways(false); cur.current.always = false; seg.current?.flush(); idleRelease(); return; }
     try { await openMic(); setAlways(true); } catch (e) { bus.error(micMessage(e)); }
   };
-  fns.current = { onChunk, hear, startPtt, endPtt };
+  fns.current = { onChunk, heard, startPtt, endPtt };
 
   useEffect(() => {
     const vis = () => {
@@ -281,7 +272,7 @@ export function Talk() {
   useEffect(() => { const f = feed.current; if (f && stick.current) f.scrollTop = f.scrollHeight; }, [entries.length, last?.status]);
   const onScroll = () => { const f = feed.current; stick.current = f.scrollHeight - f.scrollTop - f.clientHeight < 80; };
 
-  const busy = (e) => ({ stt: 'recognizing…', llm: e.who === 'me' ? 'writing…' : 'translating…' })[e.status];
+  const busy = (e) => e.status === 'busy' && (e.who === 'me' ? 'writing…' : 'translating…');
   const status = (e) => html`
     ${busy(e) && html`<div class="busy">${busy(e)}</div>`}
     ${e.status === 'error' && html`<div class="err">${e.error} · <span class="link" onClick=${() => retry(e)}>retry</span> · <span class="link" onClick=${() => drop(e.id)}>dismiss</span></div>`}`;

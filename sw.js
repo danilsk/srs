@@ -1,5 +1,5 @@
 // Bump the version when changing the app shell (HTML, CSS, JS, or icons).
-const CACHE = 'srs-shell-v12';
+const CACHE = 'srs-shell-v13';
 const LOCAL = [
   './', './index.html', './style.css',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',

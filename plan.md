@@ -71,11 +71,12 @@ DayCounter { deckId, date, newShown }
 Full-screen page at `#/talk`, linked only from the bottom of the deck list. For conversations with Georgian, Ukrainian and Spanish speakers.
 
 - **Listening**: "Hold to talk" (hold, or tap to start and tap again to send; `space` on desktop) and an "Always" toggle. Always-listen splits the mic stream into utterances by loudness: speech = 4× the quietest tenth of the last 3 s, 0.8 s of quiet ends it, max 25 s. The mic is ignored while read-aloud plays; the screen stays awake while Always is on.
-- **Languages**: picker All / KA / UK / ES. All = auto-detect; a single language is passed to the transcriber as a hint.
-- **Speech-to-text**: `openai/gpt-transcribe` via `/audio/transcriptions` (tested: correct on all three; Whisper fails on Georgian). Any audio chat model also works (e.g. `google/gemini-3.8-flash`, told the three languages, handles mixed speech but is slower).
-- **Luna** (`openai/gpt-6-luna`, reasoning `medium`): one call per utterance → language, translation into English or Russian (→ EN/RU toggle), question yes/no, 3 short replies when it is a question. Replies show under the latest message only; tapping one reads it aloud and adds it to the log.
-- **Writing**: type in English or Russian what to say (exact words or a description) → Luna writes it in the chosen language (follows the last language heard) with a back-translation. The audio is generated right away, so "Read aloud" (default TTS) starts instantly.
-- **Context**: only the last 6 lines (200 chars each) go to Luna. The log keeps the last 60 finished lines in `localStorage`; nothing is synced.
+- **Languages**: picker All / KA / UK / ES. All = any of the three, detected by the model.
+- **Hearing**: one call to `google/gemini-3.1-flash-lite` with the audio → speech yes/no, language, transcript, translation into English or Russian (→ EN/RU toggle), question yes/no, 3 short replies when it is a question. About 2 s. Replies show under the latest message only; tapping one reads it aloud and adds it to the log.
+- **No made-up speech**: Gemini invents plausible lines from silence or noise, far more often when given conversation context. So clips without voice never leave the device (`hasSpeech`), the hearing call gets no context, and the model must answer `speech` first. Tested: `gemini-3.8-flash` still invents speech from noise and takes ~5 s (~10 s at high effort); `gemini-3.5-flash-lite` garbles Georgian. Every Talk call has `max_tokens` and a 45 s timeout.
+- **Effort**: Settings → talk reasoning effort (default minimal). On flash-lite every level answers in about 2 s.
+- **Writing**: type in English or Russian what to say (exact words or a description) → the same model writes it in the chosen language (follows the last language heard) with a back-translation, using the last 6 lines as context. About 1.5 s. The audio is generated right away, so "Read aloud" (default TTS) starts instantly.
+- The log keeps the last 60 finished lines in `localStorage`; nothing is synced.
 
 ## Google Drive sync
 

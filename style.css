@@ -236,7 +236,8 @@ select.step.last{background:transparent;border-color:var(--line)}
 /* talk */
 .talk-link{margin-top:40px;text-align:center}
 .tpage{display:flex;flex-direction:column;height:100dvh}
-.tpage .lt{flex:none}
+.tpage .lt{flex:none;flex-wrap:wrap;row-gap:6px}
+.tpage .back{white-space:nowrap}
 .seg{display:flex;background:var(--soft);border-radius:99px;padding:2px}
 .seg button{padding:3px 10px;font-size:13px;border-radius:99px;border:0;background:none;color:var(--muted)}
 .seg button.on{background:var(--fg);color:var(--bg)}

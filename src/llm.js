@@ -135,37 +135,9 @@ function toBase64(bytes) {
   return btoa(s);
 }
 
-const chatStt = new Set();
-
-export async function transcribe(wav, langs, signal) {
-  const key = prefs.get('orKey');
-  if (!key) throw new Error('OpenRouter key is not set (settings)');
-  const model = prefs.get('sttModel'), data = toBase64(wav);
-  if (!chatStt.has(model)) {
-    const r = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
-      method: 'POST', signal,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'srs' },
-      body: JSON.stringify({ model, input_audio: { data, format: 'wav' }, language: langs.length === 1 ? langs[0].code : undefined }),
-    });
-    const d = await r.json().catch(() => ({}));
-    if (r.ok && !d.error) return String(d.text || '').trim();
-    const msg = d.error?.message || `transcription ${r.status}`;
-    if (!/does not exist|not a valid model/i.test(msg)) throw Object.assign(new Error(msg), { status: r.status });
-    chatStt.add(model);
-  }
-  const names = langs.map((l) => l.name).join(', ');
-  const d = await call({
-    model, reasoning: { effort: 'minimal' }, response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: `Transcribe the speech. The speaker speaks ${langs.length > 1 ? `one of: ${names} (possibly mixing them)` : names}. Write it verbatim in the original language and script; never translate. Return JSON {"text": "..."}; use an empty string if there is no speech.` },
-      { role: 'user', content: [{ type: 'input_audio', input_audio: { data, format: 'wav' } }] },
-    ],
-  }, signal);
-  return String(parseContent(d.choices?.[0]?.message?.content).text || '').trim();
-}
-
-async function talkCall(name, system, user, schema, signal) {
-  const base = { model: prefs.get('talkModel'), reasoning: { effort: prefs.get('talkEffort') }, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
+async function talkCall(name, system, user, schema, signal = AbortSignal.timeout(45e3)) {
+  // max_tokens caps a model stuck repeating itself.
+  const base = { model: prefs.get('talkModel'), reasoning: { effort: prefs.get('talkEffort') }, max_tokens: 4000, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] };
   let data;
   try {
     data = await call({ ...base, response_format: { type: 'json_schema', json_schema: { name, strict: true, schema } } }, signal);
@@ -180,25 +152,32 @@ const str = (description) => ({ type: 'string', description });
 const obj = (properties) => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const lines = (context) => context.length ? `Recent conversation, oldest first:\n${context.join('\n')}\n\n` : '';
 
-export async function interpret(text, { langs, mine, context }, signal) {
+// No conversation context here: with it, Gemini invents a plausible next line from silence or noise.
+export async function hear(wav, { langs, mine }, signal) {
   const codes = langs.map((l) => l.code);
   const schema = obj({
+    speech: { type: 'boolean' },
     lang: { type: 'string', enum: [...codes, 'other'] },
-    translation: str(`natural ${mine} translation of the utterance`),
+    transcript: str('exactly what was said, in the original language and script'),
+    translation: str(`natural ${mine} translation of what was said`),
     question: { type: 'boolean' },
-    replies: { type: 'array', maxItems: 3, items: obj({ text: str('the reply, in the language of the utterance'), meaning: str(`${mine} translation of the reply`) }) },
+    replies: { type: 'array', maxItems: 3, items: obj({ text: str('the reply, in the language that was spoken'), meaning: str(`${mine} translation of the reply`) }) },
   });
   const system = [
-    `You are a live interpreter for a user who speaks ${mine}. The people around them speak ${langs.map((l) => `${l.name} (${l.code})`).join(', ')}.`,
-    'You get the latest utterance, transcribed automatically (it may contain recognition errors), and a few earlier lines for context. Return JSON:',
-    `- lang: language of the utterance; "other" if it is none of ${codes.join(', ')}.`,
-    `- translation: faithful, natural ${mine} translation of the latest utterance only. Fix obvious recognition errors silently. Use an empty string if the transcript is recognition noise (subtitle credits, "thanks for watching", random syllables).`,
-    '- question: true if the utterance asks the user something or clearly expects an answer; false for "other".',
-    `- replies: when question is true, 3 short, common, natural replies the user could say, in the utterance's language, covering different answers (e.g. yes / no / ask to clarify); each with its ${mine} meaning. Otherwise [].`,
+    `You are a live interpreter for a user who speaks ${mine}. The people around them speak ${langs.map((l) => `${l.name} (${l.code})`).join(', ')}${langs.length > 1 ? ', possibly mixing them' : ''}.`,
+    'You get an audio clip of the latest thing said. Return JSON:',
+    '- speech: true only if human speech is clearly audible in the clip; if false, all other fields are empty.',
+    `- lang: language of the speech; "other" if it is none of ${codes.join(', ')}.`,
+    '- transcript: exactly the words audible in the clip, in the original language and script; never translate it.',
+    `- translation: faithful, natural ${mine} translation of the clip.`,
+    '- question: true if the speaker asks the user something or clearly expects an answer; false for "other".',
+    `- replies: when question is true, 3 short, common, natural replies the user could say, in the language spoken, covering different answers (e.g. yes / no / ask to clarify); each with its ${mine} meaning. Otherwise [].`,
   ].join('\n');
-  const r = await talkCall('hear', system, `${lines(context)}Latest utterance:\n${text}`, schema, signal);
+  const user = [{ type: 'text', text: 'The clip:' }, { type: 'input_audio', input_audio: { data: toBase64(wav), format: 'wav' } }];
+  const r = await talkCall('hear', system, user, schema, signal);
+  if (!r.speech) return { src: '' };
   const replies = r.question && Array.isArray(r.replies) ? r.replies.slice(0, 3).map((x) => ({ text: String(x.text || '').trim(), meaning: String(x.meaning || '').trim() })).filter((x) => x.text) : [];
-  return { lang: codes.includes(r.lang) ? r.lang : 'other', translation: String(r.translation || '').trim(), question: !!r.question, replies };
+  return { lang: codes.includes(r.lang) ? r.lang : 'other', src: String(r.transcript || '').trim(), translation: String(r.translation || '').trim(), question: !!r.question, replies };
 }
 
 export async function compose(ask, { lang, mine, context }, signal) {

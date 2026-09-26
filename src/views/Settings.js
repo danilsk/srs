@@ -52,11 +52,10 @@ export function Settings() {
     </div>
     <div class="row"><button onClick=${runTest} disabled=${!prefs.get('orKey')}>Test ⚡</button>${test && html`<span class="muted small">${test}</span>`}</div>
 
-    <h3>Talk<${Q} text="Speech-to-text takes a transcription model (e.g. openai/gpt-transcribe) or any chat model with audio input (e.g. google/gemini-3.8-flash, which also handles speakers mixing languages). The talk model translates, suggests replies and writes your messages; read-aloud uses the audio model above." /></h3>
-    <div class="g3">
-      <div class="f"><label>speech-to-text model</label><input placeholder=${DEFAULTS.sttModel} ...${bind('sttModel')} /></div>
+    <h3>Talk<${Q} text="One model call hears the audio, transcribes, translates and suggests replies; the same model writes your messages, so it must accept audio input. Tested: gemini-3.1-flash-lite answers in about 2 s at every effort level; gemini-3.8-flash is slower and invents speech from silence or noise. Read-aloud uses the audio model above." /></h3>
+    <div class="g2">
       <div class="f"><label>talk model</label><input placeholder=${DEFAULTS.talkModel} ...${bind('talkModel')} /></div>
-      <div class="f"><label>talk reasoning</label><select value=${prefs.get('talkEffort')} onChange=${(e) => { prefs.set('talkEffort', e.target.value); force((n) => n + 1); }}>
+      <div class="f"><label>talk reasoning effort</label><select value=${prefs.get('talkEffort')} onChange=${(e) => { prefs.set('talkEffort', e.target.value); force((n) => n + 1); }}>
         ${['minimal', 'low', 'medium', 'high'].map((v) => html`<option key=${v} value=${v}>${v}</option>`)}</select></div>
     </div>
 
