@@ -15,7 +15,7 @@ const CONTEXT = 6, KEEP = 60, TAP_MS = 350, CLIPS = 20;
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem('srs.talk.' + k)) ?? d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem('srs.talk.' + k, JSON.stringify(v)); } catch {} };
 const cut = (s) => (s.length > 200 ? s.slice(0, 200) + '…' : s);
-const voice = (code) => ({ tts: { voice: 'Iapetus', instructions: `Speak as a native ${LANG[code].name} speaker, in a natural, friendly conversational tone, clearly and not too fast.` } });
+const voice = (code) => ({ targetLang: LANG[code].name, tts: { voice: 'Iapetus', instructions: `Speak as a native ${LANG[code].name} speaker, in a natural, friendly conversational tone, clearly and not too fast.` } });
 
 let silent;
 const silentUrl = () => (silent ||= URL.createObjectURL(new Blob([toWav(new Float32Array(1600))], { type: 'audio/wav' })));

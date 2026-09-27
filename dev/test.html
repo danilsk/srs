@@ -240,6 +240,21 @@ try {
   ok($$('.tpage .seg button').map((b) => b.textContent).join() === 'All,KA,UK,ES', 'talk language picker');
   location.hash = '#/'; await sleep(100);
   ok($('.talk-link a')?.getAttribute('href') === '#/talk', 'decks page links to talk');
+  // --- pronounce examples
+  const P = (await import('../src/prefs.js')).prefs;
+  const box = document.createElement('div'); document.body.append(box);
+  render(html`<${CardBody} deck=${deck} card=${c} side="front" />`, box); await sleep(30);
+  ok(!box.querySelector('.ex.say') && box.querySelectorAll('.ex').length === 2, 'examples split, not tappable without a key');
+  P.set('orKey', 'test');
+  render(null, box); render(html`<${CardBody} deck=${deck} card=${c} side="front" />`, box); await sleep(30);
+  const sent = [], realFetch2 = window.fetch;
+  window.fetch = async (url, o) => { sent.push(JSON.parse(o.body).input); return new Response(new Uint8Array([0, 0, 0, 0]), { headers: { 'content-type': 'audio/pcm' } }); };
+  const says = box.querySelectorAll('.ex.say');
+  click(says[1]); await sleep(100);
+  ok(says.length === 2 && sent.length === 1 && sent[0].includes('Language: German') && sent[0].endsWith('TRANSCRIPT\nGelassenheit ist eine Tugend.'), 'pronounce reads only the first line, with the language: ' + JSON.stringify(sent[0]?.slice(-80)));
+  click(says[1]); await sleep(100);
+  ok(sent.length === 1, 'pronounce reuses the audio on a second tap');
+  window.fetch = realFetch2; P.set('orKey', ''); render(null, box); box.remove();
   c.fields = { grammar: 'die, -en · <i>feminine</i>' }; await store.saveCard(c);
   log('DONE');
 } catch (e) { if (e.message !== 'guard') log('EXC', e.stack || e); }

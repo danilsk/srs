@@ -102,7 +102,7 @@ async function tts(deck, text, signal) {
     // Without these headers Gemini 3.8 reads the style notes aloud.
     body: JSON.stringify({
       model: prefs.get('ttsModel'), voice: deck.tts?.voice || 'Iapetus',
-      input: `# AUDIO PROFILE: Language tutor\n\n### DIRECTOR'S NOTES\nStyle: ${ttsGuidance(deck)}\n\n#### TRANSCRIPT\n${text}`,
+      input: `# AUDIO PROFILE: Language tutor\n\n### DIRECTOR'S NOTES\n${deck.targetLang ? `Language: ${deck.targetLang}\n` : ''}Style: ${ttsGuidance(deck)}\n\n#### TRANSCRIPT\n${text}`,
       response_format: 'pcm',
     }),
   });

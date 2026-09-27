@@ -102,6 +102,9 @@ main.wide{max-width:1600px}
 .senses{margin:24px 0 0;display:grid;gap:20px;text-align:left}
 .senses.first{margin-top:0}
 .senses li{display:grid;gap:6px;font-size:var(--text-body);min-width:0}
+.ex+.ex{margin-top:.75em}
+.ex.say{cursor:pointer;transition:opacity .15s}
+.ex.busy{opacity:.5}
 .senses .sf .lbl{color:var(--muted);font-size:var(--text-label);margin-right:8px}
 .fields{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px 16px;font-size:var(--text-body)}
 .fields .lbl{color:var(--muted);font-size:var(--text-label);padding-top:3px}

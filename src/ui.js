@@ -5,7 +5,8 @@ import { store } from './store.js';
 import { sync } from './drive.js';
 import { bus, sanitize, isMac } from './util.js';
 import { lastStep, stepLabel } from './schedule.js';
-import { playCard, playBlob } from './audio.js';
+import { playCard, playBlob, say } from './audio.js';
+import { prefs } from './prefs.js';
 
 export { html, useState, useEffect, useRef, useMemo, useCallback };
 
@@ -99,6 +100,24 @@ export function HtmlField({ value, onInput, placeholder = 'empty · click to edi
     ${value ? html`<${Html} html=${value} />` : placeholder}</div>`;
 }
 
+const firstLine = (s) => new DOMParser().parseFromString(s.split(/<br\s*\/?>/i)[0], 'text/html').body.textContent.trim();
+
+function Example({ deck, html: s }) {
+  const [busy, setBusy] = useState(false);
+  const text = prefs.get('orKey') && firstLine(s);
+  const onClick = async (e) => {
+    e.stopPropagation();
+    if (busy) return;
+    setBusy(true);
+    try { await say(deck, text); } catch (err) { bus.error(err); } finally { setBusy(false); }
+  };
+  return html`<div class=${'ex' + (text ? ' say' : '') + (busy ? ' busy' : '')} onClick=${text ? onClick : null} title=${text ? 'tap to pronounce' : null}>
+    <${Html} tag="span" html=${s} /></div>`;
+}
+
+const Examples = ({ deck, html: s }) => s.split(/(?:<br\s*\/?>\s*){2,}/i).filter((p) => p.trim())
+  .map((p, i) => html`<${Example} key=${i} deck=${deck} html=${p} />`);
+
 export function CardBody({ deck, card, side = 'front', flipped = true }) {
   const hasCardFields = deck.cardFields.some((f) => card.fields?.[f.key]);
   const labels = !!deck.showLabels;
@@ -111,7 +130,8 @@ export function CardBody({ deck, card, side = 'front', flipped = true }) {
       ${side === 'back' && html`<div class="word">${card.front}</div>`}
       ${visibleSenses.length > 0 && html`<ol class=${'senses' + (side === 'front' ? ' first' : '')}>${visibleSenses.map((s, i) => html`<li key=${i}>
         ${side === 'front' && html`<div class="tr">${s.translation}</div>`}
-        ${deck.senseFields.map((f) => s.fields?.[f.key] && html`<div class="sf" key=${f.key} title=${labels ? null : f.label}>${labels && html`<span class="lbl">${f.label}</span>`}<${Html} tag="span" html=${s.fields[f.key]} /></div>`)}
+        ${deck.senseFields.map((f) => s.fields?.[f.key] && html`<div class="sf" key=${f.key} title=${labels ? null : f.label}>${labels && html`<span class="lbl">${f.label}</span>`}${f.key === 'examples'
+          ? html`<${Examples} deck=${deck} html=${s.fields[f.key]} />` : html`<${Html} tag="span" html=${s.fields[f.key]} />`}</div>`)}
       </li>`)}</ol>`}
       ${hasCardFields && html`<div class=${'fields' + (labels ? '' : ' nolabels')}>${deck.cardFields.map((f) => card.fields?.[f.key] && html`${labels && html`<span class="lbl" key=${'l' + f.key}>${f.label}</span>`}<${Html} key=${f.key} title=${labels ? null : f.label} html=${card.fields[f.key]} />`)}</div>`}
     </div>`}`;
