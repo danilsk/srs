@@ -28,7 +28,11 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
   const mode = editId ? 'edit' : 'add';
   const canGen = !!prefs.get('orKey');
 
-  useEffect(() => { (view ? boxRef : frontRef).current?.focus(); }, [editId, view]);
+  useEffect(() => {
+    const el = (view ? boxRef : frontRef).current;
+    el?.closest('.overlay')?.scrollTo(0, 0);
+    el?.focus({ preventScroll: true });
+  }, [editId, view]);
   useEffect(() => () => abort.current?.abort(), []);
 
   const up = (patch) => setDraft((d) => ({ ...d, ...patch }));
@@ -205,8 +209,8 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
 
     <div class="front-line">
       <input ref=${frontRef} class="front-input" placeholder="Word or phrase…" value=${draft.front} onInput=${(e) => up({ front: e.target.value })} autocomplete="off" autocapitalize="none" />
-      ${(stale || exact) && html`<button class="primary" disabled=${gen.text || !draft.front.trim()} onClick=${generate} title=${canGen ? 'generate with the LLM' : 'set the OpenRouter key in settings'}>
-        ${exact ? 'Open' : gen.text ? '…' : 'Generate ⚡'} <kbd>↩</kbd></button>`}
+      <button class=${stale || exact ? 'primary' : 'ghost'} disabled=${gen.text || !draft.front.trim()} onClick=${generate} title=${canGen ? 'generate with the LLM' : 'set the OpenRouter key in settings'}>
+        ${exact ? 'Open' : gen.text ? '…' : 'Generate ⚡'} <kbd>↩</kbd></button>
     </div>
     ${mode === 'add' && html`<div class="dict">
       ${exact ? html`already in deck: <span class="link" onClick=${() => openExisting(exact)}>${exact.front}</span><span class="muted"> · ${cardBack(exact)} · ${stepLabel(deck, exact.step)}</span>`
@@ -248,7 +252,6 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
 
     <div class="mfoot">
       ${mode === 'edit' && html`<button class="ghost danger" onClick=${del}>Delete</button>`}
-      ${!stale && html`<button class="ghost" disabled=${!canGen || gen.text} onClick=${generate}>Regenerate all ⚡</button>`}
       <span class="spacer"></span>
       ${mode === 'add' && html`<${Q} text="Enter generates, ⌘/Ctrl-Enter adds. The window stays open for the next word; typing a word already in the deck opens that card instead." />`}
       <button class="ghost" onClick=${() => (startView ? (reset(clone(existing)), setView(true)) : onClose())}>${mode === 'add' ? 'Discard' : 'Cancel'}</button>

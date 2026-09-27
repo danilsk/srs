@@ -177,7 +177,7 @@ select.step.last{background:transparent;border-color:var(--line)}
 .pager{display:flex;gap:14px;justify-content:center;margin-top:14px;font-size:13px;color:var(--muted);align-items:center}
 
 /* modal */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:10;overflow:auto}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:10;overflow:auto;overscroll-behavior:contain}
 .modal{background:var(--bg);border:1px solid var(--line);border-radius:14px;width:100%;max-width:720px;padding:20px 22px 16px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .modal.narrow{max-width:520px}
 .mhead{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;color:var(--muted)}
@@ -299,7 +299,7 @@ select.step.last{background:transparent;border-color:var(--line)}
   .grades button{padding:10px 2px 8px;font-size:14px}
   .grades button small{font-size:11px}
   .show-bar button{max-width:none}
-  .overlay{padding:0;align-items:stretch}
+  .overlay{padding:0}
   .modal:not(.narrow){max-width:none;min-height:100dvh;border:0;border-radius:0;padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
   @media(display-mode:standalone){.modal:not(.narrow){padding-top:calc(14px + env(safe-area-inset-top))}}
   .modal.narrow{margin:6vh 16px;align-self:flex-start}
