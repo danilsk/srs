@@ -252,16 +252,18 @@ select.step.last{background:transparent;border-color:var(--line)}
 .tm.them{align-self:flex-start}
 .tm.me{align-self:flex-end;justify-items:end;text-align:right}
 .tm.other{opacity:.6}
-.tm .src{font-size:var(--text-small);color:var(--muted)}
+.tm .src{font-size:var(--text-card);line-height:var(--leading-card)}
 .tm .tag{font-size:11px;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-right:6px}
-.tm .big{font-size:var(--text-card);line-height:var(--leading-card)}
-.tm.me .big{background:var(--acc-soft);border-radius:14px;padding:8px 14px}
+.tm .big{font-size:var(--text-card);line-height:var(--leading-card);color:var(--muted)}
+.tm.me .big{color:var(--fg);background:var(--acc-soft);border-radius:14px;padding:8px 14px}
+.tm.me .src{color:var(--muted)}
+.tm.me .big.say{cursor:pointer;transition:opacity .15s}
+.tm.me .big.load{opacity:.5}
+.tm.me .big.on{box-shadow:0 0 0 1.5px var(--acc)}
 .tm .busy{font-size:13px;color:var(--amber)}
 .replies{display:grid;gap:6px;margin-top:6px}
 .replies button{text-align:left;white-space:normal;display:grid;gap:1px;border-radius:12px;padding:8px 12px;font-size:var(--text-body)}
 .replies button small{color:var(--muted);font-size:13px}
-.replies button.on,.speak.on{border-color:var(--acc)}
-.speak{font-size:13px;padding:4px 12px;border-radius:99px}
 .tfoot{flex:none;border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:grid;gap:10px;background:var(--bg)}
 .tfoot>*{width:100%;max-width:820px;margin:0 auto}
 .tsay{display:flex;gap:6px}

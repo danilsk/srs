@@ -110,7 +110,7 @@ export function Talk() {
     const last = log.current[log.current.length - 1];
     if (!(last?.who === 'me' && last.text === r.text)) update((l) => [...l, { id: uid(), who: 'me', text: r.text, meaning: r.meaning, lang: code, status: 'done' }]);
     stick.current = true;
-    speak(r.text, code);
+    clip(r.text, code).catch(() => {});
   };
 
   const clip = (text, code) => {
@@ -281,17 +281,16 @@ export function Talk() {
     ${e.src && html`<div class="src">${LANG[e.lang] && html`<span class="tag">${LANG[e.lang].short}</span>`}<span lang=${e.lang}>${e.src}</span></div>`}
     ${e.translation && html`<div class="big">${e.translation}</div>`}
     ${status(e)}
-    ${e.id === latest && e.replies?.length > 0 && html`<div class="replies">${e.replies.map((r, i) => html`<button key=${i} class=${speaking?.k === e.lang + ':' + r.text ? 'on' : ''} onClick=${() => reply(r, e.lang)}>
+    ${e.id === latest && e.replies?.length > 0 && html`<div class="replies">${e.replies.map((r, i) => html`<button key=${i} onClick=${() => reply(r, e.lang)}>
       <span lang=${e.lang}>${r.text}</span><small>${r.meaning}</small></button>`)}</div>`}
   </div>`;
   const me = (e) => {
     const st = e.text && speaking?.k === e.lang + ':' + e.text ? speaking : null;
     return html`<div class="tm me" key=${e.id}>
       ${!e.text && html`<div class="src">${e.ask}</div>`}
-      ${e.text && html`<div class="big" lang=${e.lang} title=${e.ask || ''}>${e.text}</div>`}
+      ${e.text && html`<div class=${'big say' + (st ? (st.playing ? ' on' : ' load') : '')} lang=${e.lang} title=${e.ask || 'tap to hear'} onClick=${() => speak(e.text, e.lang)}>${e.text}</div>`}
       ${e.meaning && html`<div class="src"><span class="tag">${LANG[e.lang]?.short}</span>${e.meaning}</div>`}
       ${status(e)}
-      ${e.text && html`<div><button class=${'speak' + (st ? ' on' : '')} onClick=${() => speak(e.text, e.lang)}>${st ? (st.playing ? '■ Stop' : 'Loading…') : '▶ Read aloud'}</button></div>`}
     </div>`;
   };
 
@@ -307,7 +306,7 @@ export function Talk() {
     <div class="tfeed" ref=${feed} onScroll=${onScroll}><div class="tlog">
       ${!entries.length && html`<div class="tempty">
         <p>Hold the button below while they speak, or switch on <b>Always</b>.</p>
-        <p>To reply, type in English or Russian.</p>
+        <p>To reply, type in English or Russian. Tap your message to hear it.</p>
       </div>`}
       ${entries.map((e) => (e.who === 'me' ? me(e) : them(e)))}
     </div></div>
