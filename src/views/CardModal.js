@@ -19,6 +19,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
   const [blob, setBlob] = useState(null);
   const [gen, setGen] = useState(IDLE);
   const [sug, setSug] = useState(null);
+  const [basis, setBasis] = useState(() => (existing ? norm(existing.front) : null));
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
   const frontRef = useRef();
@@ -45,11 +46,12 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
   const nf = norm(draft.front);
   const others = mode === 'add' && nf ? store.cardsOf(deckId) : [];
   const exact = others.find((c) => norm(c.front) === nf);
+  const stale = nf !== basis;
   const similar = others.filter((c) => c !== exact && (norm(c.front).includes(nf) || (nf.length > 3 && nf.includes(norm(c.front))))).slice(0, 6);
 
   const reset = (card) => {
     abort.current?.abort();
-    setDraft(card); setBlob(null); setSug(null); setErr(null); setGen(IDLE);
+    setDraft(card); setBlob(null); setSug(null); setErr(null); setGen(IDLE); setBasis(card.front ? norm(card.front) : null);
   };
   const openExisting = (c) => { setEditId(c.id); reset(clone(c)); };
 
@@ -61,6 +63,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
       if (signal.aborted) return;
       setDraft((d) => ({ ...d, senses: r.senses, fields: r.fields }));
       setSug(r.front_suggestion);
+      setBasis(norm(front));
       setGen((g) => ({ ...g, text: false, textMs: performance.now() - t0 }));
     } catch (e) {
       if (!signal.aborted) setErr(e.message);
@@ -93,7 +96,11 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
     genAudio(front, signal);
   };
   const regenAudio = () => { const front = draft.front.trim(); if (!front || !canGen) return; setErr(null); genAudio(front, controller()); };
-  const applySug = () => { up({ front: sug }); setSug(null); if (canGen) genAudio(sug, controller()); };
+  const applySug = () => {
+    const sounds = norm(sug) !== nf;
+    up({ front: sug }); setSug(null); setBasis(norm(sug));
+    if (canGen && sounds) genAudio(sug, controller());
+  };
   const removeAudio = () => { abort.current?.abort(); setGen((g) => ({ ...g, audio: false })); setBlob(null); up({ audio: null }); };
 
   const save = async () => {
@@ -158,7 +165,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
       e.preventDefault();
     }
     else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); }
-    else if (e.key === 'Enter' && e.target === frontRef.current) { e.preventDefault(); generate(); }
+    else if (e.key === 'Enter' && e.target === frontRef.current) { e.preventDefault(); if (stale || exact) generate(); }
   };
 
   const sec = (ms) => (ms / 1000).toFixed(1) + ' s';
@@ -197,9 +204,9 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
     </div>
 
     <div class="front-line">
-      <input ref=${frontRef} class="front-input" placeholder="Word or phrase…" value=${draft.front} onInput=${(e) => up({ front: e.target.value })} autocomplete="off" />
-      <button class="primary" disabled=${gen.text || !draft.front.trim()} onClick=${generate} title=${canGen ? 'generate with the LLM' : 'set the OpenRouter key in settings'}>
-        ${mode === 'add' && exact ? 'Open' : gen.text ? '…' : 'Generate ⚡'} <kbd>↩</kbd></button>
+      <input ref=${frontRef} class="front-input" placeholder="Word or phrase…" value=${draft.front} onInput=${(e) => up({ front: e.target.value })} autocomplete="off" autocapitalize="none" />
+      ${(stale || exact) && html`<button class="primary" disabled=${gen.text || !draft.front.trim()} onClick=${generate} title=${canGen ? 'generate with the LLM' : 'set the OpenRouter key in settings'}>
+        ${exact ? 'Open' : gen.text ? '…' : 'Generate ⚡'} <kbd>↩</kbd></button>`}
     </div>
     ${mode === 'add' && html`<div class="dict">
       ${exact ? html`already in deck: <span class="link" onClick=${() => openExisting(exact)}>${exact.front}</span><span class="muted"> · ${cardBack(exact)} · ${stepLabel(deck, exact.step)}</span>`
@@ -211,7 +218,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
       ${gen.audio ? html`<span class="busy">● audio…</span>` : gen.audioMs && html`<span><span class="dot">●</span> audio ${sec(gen.audioMs)}</span>`}
       ${err && html`<span class="err">${err}</span>`}
       <span class="spacer"></span>
-      ${sug && html`<span>suggested: <b>${sug}</b> <span class="link" onClick=${applySug}>apply</span></span>`}
+      ${sug && sug !== draft.front.trim() && html`<span>suggested: <b>${sug}</b> <span class="link" onClick=${applySug}>apply</span></span>`}
     </div>
 
     ${deck.audioFor !== 'off' && html`<div class="f"><label>audio</label>
@@ -222,7 +229,7 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
     ${draft.senses.map((s, i) => html`<div class="sense" key=${i}>
       <div class="shead">
         <b>${i + 1}</b>
-        <input placeholder="translation" value=${s.translation} onInput=${(e) => upSense(i, { translation: e.target.value })} />
+        <input placeholder="translation" autocapitalize="none" value=${s.translation} onInput=${(e) => upSense(i, { translation: e.target.value })} />
         <button class="ghost sm" disabled=${i === 0} onClick=${() => mvSense(i, -1)} title="move up">↑</button>
         <button class="ghost sm" disabled=${i === draft.senses.length - 1} onClick=${() => mvSense(i, 1)} title="move down">↓</button>
         <button class="ghost sm" disabled=${draft.senses.length === 1} onClick=${() => rmSense(i)} title="remove sense">✕</button>
@@ -240,8 +247,8 @@ export function CardModal({ deckId, cardId, view: startView = false, ids = [], o
       <${Ruler} compact deck=${deck} step=${draft.step} onPick=${moveStep} /></div>`}
 
     <div class="mfoot">
-      ${mode === 'edit' && html`<button class="ghost danger" onClick=${del}>Delete</button>
-        <button class="ghost" disabled=${!canGen || gen.text} onClick=${generate}>Regenerate all ⚡</button>`}
+      ${mode === 'edit' && html`<button class="ghost danger" onClick=${del}>Delete</button>`}
+      ${!stale && html`<button class="ghost" disabled=${!canGen || gen.text} onClick=${generate}>Regenerate all ⚡</button>`}
       <span class="spacer"></span>
       ${mode === 'add' && html`<${Q} text="Enter generates, ⌘/Ctrl-Enter adds. The window stays open for the next word; typing a word already in the deck opens that card instead." />`}
       <button class="ghost" onClick=${() => (startView ? (reset(clone(existing)), setView(true)) : onClose())}>${mode === 'add' ? 'Discard' : 'Cancel'}</button>
