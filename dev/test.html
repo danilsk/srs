@@ -224,22 +224,6 @@ try {
   ok(!!$('.modal table.hk'), 'help overlay');
   key('Escape'); await sleep(50);
   ok(!$('.modal'), 'help closed');
-  // --- talk
-  const M = await import('../src/mic.js');
-  const tone = (sec, amp) => { const a = new Float32Array(Math.round(sec * M.RATE)); for (let i = 0; i < a.length; i++) a[i] = amp * Math.sin(i / 8); return a; };
-  const utts = [];
-  const sg = new M.Segmenter((u) => utts.push(u.length / M.RATE));
-  const feed = (a) => { for (let i = 0; i < a.length; i += 680) sg.push(a.subarray(i, i + 680)); };
-  [[1, 0.001], [1.2, 0.2], [1.5, 0.001], [0.1, 0.2], [1.5, 0.001], [2, 0.2], [1, 0.001]].forEach(([s, a]) => feed(tone(s, a)));
-  ok(utts.length === 2 && utts[0] > 1.2 && utts[0] < 2.8 && utts[1] > 2, 'segmenter splits speech at pauses and skips a click: ' + utts.map((u) => u.toFixed(2)));
-  ok(!M.hasSpeech(tone(2, 0)) && !M.hasSpeech(tone(2, 0.02)) && M.hasSpeech(new Float32Array([...tone(1, 0.001), ...tone(1, 0.2)])), 'hasSpeech skips silence and steady sound, passes a loud part');
-  const w = M.toWav(new Float32Array([0, 1, -1]));
-  ok(w.length === 50 && String.fromCharCode(...w.subarray(0, 4)) === 'RIFF' && new DataView(w.buffer).getInt16(46, true) === 32767, 'toWav writes 16 kHz PCM');
-  location.hash = '#/talk'; await sleep(150);
-  ok(!!$('.tpage .ptt') && !!$('.tpage .always') && !$('header.top'), 'talk page is full-screen with push-to-talk and always-listen');
-  ok($$('.tpage .seg button').map((b) => b.textContent).join() === 'All,KA,UK,ES', 'talk language picker');
-  location.hash = '#/'; await sleep(100);
-  ok($('.talk-link a')?.getAttribute('href') === '#/talk', 'decks page links to talk');
   // --- pronounce examples
   const P = (await import('../src/prefs.js')).prefs;
   const box = document.createElement('div'); document.body.append(box);

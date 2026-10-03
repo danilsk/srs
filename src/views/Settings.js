@@ -52,13 +52,6 @@ export function Settings() {
     </div>
     <div class="row"><button onClick=${runTest} disabled=${!prefs.get('orKey')}>Test ⚡</button>${test && html`<span class="muted small">${test}</span>`}</div>
 
-    <h3>Talk<${Q} text="One model call hears the audio, transcribes, translates and suggests replies; the same model writes your messages, so it must accept audio input. Tested: gemini-3.1-flash-lite answers in about 2 s at every effort level; gemini-3.8-flash is slower and invents speech from silence or noise. Read-aloud uses the audio model above." /></h3>
-    <div class="g2">
-      <div class="f"><label>talk model</label><input placeholder=${DEFAULTS.talkModel} ...${bind('talkModel')} /></div>
-      <div class="f"><label>talk reasoning effort</label><select value=${prefs.get('talkEffort')} onChange=${(e) => { prefs.set('talkEffort', e.target.value); force((n) => n + 1); }}>
-        ${['minimal', 'low', 'medium', 'high'].map((v) => html`<option key=${v} value=${v}>${v}</option>`)}</select></div>
-    </div>
-
     <h3>Google Drive</h3>
     <div class="f"><label>OAuth client ID<${Q} text=${`Google Cloud console → Google Auth Platform → Clients → Create client, type Web application, authorized JavaScript origin = ${location.origin}. Drive API must be enabled. Scope used: drive.file (only files this app creates).`} /></label>
       <input placeholder="…apps.googleusercontent.com" ...${bind('gClientId')} disabled=${sync.enabled} /></div>

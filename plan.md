@@ -5,7 +5,7 @@ Personal spaced-repetition + dictionary app for language learning. Static site o
 ## Stack
 
 - Vanilla ES modules, no build step. `index.html` + `src/*.js`. Preact + htm from a CDN for rendering (tiny, no JSX/bundler).
-- Hash router: `#/`, `#/deck/:id/learn`, `#/deck/:id/cards`, `#/deck/:id/settings`, `#/settings`, `#/talk`. The card modal (add/edit) sits on top of any deck view or the deck list.
+- Hash router: `#/`, `#/deck/:id/learn`, `#/deck/:id/cards`, `#/deck/:id/settings`, `#/settings`. The card modal (add/edit) sits on top of any deck view or the deck list.
 - Local store: IndexedDB (decks, cards, audio blobs). `localStorage` only for OpenRouter key, model names, client id.
 - Deployed by pushing `main`; Pages serves the repo root.
 
@@ -66,18 +66,6 @@ DayCounter { deckId, date, newShown }
 - Audio: chat-completions with `modalities:["text","audio"]`, input = front text (+ optional voice instructions). Response base64 → Blob → IndexedDB.
 - The card modal is also the dictionary: typing in "front" searches the deck live; an exact match switches the modal to editing the existing card instead of generating. After "Add" the modal stays open, empty, for the next word.
 
-## Talk (live interpreter)
-
-Full-screen page at `#/talk`, linked only from the bottom of the deck list. For conversations with Georgian, Ukrainian and Spanish speakers.
-
-- **Listening**: "Hold to talk" (hold, or tap to start and tap again to send; `space` on desktop) and an "Always" toggle. Always-listen splits the mic stream into utterances by loudness: speech = 4× the quietest tenth of the last 3 s, 0.8 s of quiet ends it, max 25 s. The mic is ignored while read-aloud plays; the screen stays awake while Always is on.
-- **Languages**: picker All / KA / UK / ES. All = any of the three, detected by the model.
-- **Hearing**: one call to `google/gemini-3.1-flash-lite` with the audio → speech yes/no, language, transcript, translation into English or Russian (→ EN/RU toggle), question yes/no, 3 short replies when it is a question. About 2 s. Replies show under the latest message only; tapping one adds it to the log. Original and translation are the same size.
-- **No made-up speech**: Gemini invents plausible lines from silence or noise, far more often when given conversation context. So clips without voice never leave the device (`hasSpeech`), the hearing call gets no context, and the model must answer `speech` first. Tested: `gemini-3.8-flash` still invents speech from noise and takes ~5 s (~10 s at high effort); `gemini-3.5-flash-lite` garbles Georgian. Every Talk call has `max_tokens` and a 45 s timeout.
-- **Effort**: Settings → talk reasoning effort (default minimal). On flash-lite every level answers in about 2 s.
-- **Writing**: type in English or Russian what to say (exact words or a description) → the same model writes it in the chosen language (follows the last language heard) with a back-translation, using the last 6 lines as context. About 1.5 s. Nothing is read aloud on its own: tapping one of my messages reads it (default TTS), tapping again stops. Its audio is generated as soon as the message appears, so playback starts instantly.
-- The log keeps the last 60 finished lines in `localStorage`; nothing is synced.
-
 ## Google Drive sync
 
 - Google Identity Services token client, scope `drive.file`. Client ID is public in the code.
@@ -101,7 +89,6 @@ Full-screen page at `#/talk`, linked only from the bottom of the deck list. For 
 5. **Deck › Settings** — languages, steps, limits, direction/order, senses range + sense fields, card fields, prompt, voice, export/delete.
 6. **Settings** — OpenRouter key/models, Drive connect, sync state, export/import all.
 7. **Lock screen** and **Gate screen** (sign in / syncing / offline).
-8. **Talk** — see above.
 
 ## Hotkeys
 

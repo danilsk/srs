@@ -158,7 +158,6 @@ export const HOTKEYS = [
   ['← →', 'card view: previous / next card'],
   ['B', 'card view: switch front / back'],
   ['N', 'add a card to the current deck'],
-  ['space (hold)', 'talk: push to talk'],
   ['/', 'cards: focus search'],
   ['enter', 'card: generate with the LLM'],
   [`${isMac ? '⌘' : 'Ctrl'} enter`, 'card / settings: add or save'],
