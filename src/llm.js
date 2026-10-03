@@ -16,6 +16,8 @@ async function call(body, signal) {
   return data;
 }
 
+const textModel = () => ({ model: prefs.get('textModel'), reasoning: { effort: prefs.get('textEffort') } });
+
 function schemaFor(deck) {
   const str = (hint) => ({ type: 'string', description: hint });
   const senseProps = { translation: str(`concise translation of this sense in ${deck.nativeLang}; usually one equivalent, optionally two complementary equivalents separated by ", "; no redundant paraphrases`) };
@@ -74,7 +76,7 @@ function parseContent(content) {
 export async function generateCard(deck, front, signal) {
   front = front.trim();
   const messages = [{ role: 'system', content: systemPrompt(deck, front) }, { role: 'user', content: front }];
-  const base = { model: prefs.get('textModel'), messages };
+  const base = { ...textModel(), messages };
   let data;
   try {
     data = await call({ ...base, response_format: { type: 'json_schema', json_schema: { name: 'card', strict: true, schema: schemaFor(deck) } } }, signal);
@@ -125,6 +127,6 @@ export async function generateAudio(deck, text, signal) {
 
 export async function testKey() {
   const t = performance.now();
-  const data = await call({ model: prefs.get('textModel'), messages: [{ role: 'user', content: 'Reply with the single word: ok' }], max_tokens: 5 });
+  const data = await call({ ...textModel(), messages: [{ role: 'user', content: 'Reply with the single word: ok' }] });
   return { ms: Math.round(performance.now() - t), text: data.choices?.[0]?.message?.content?.trim() };
 }

@@ -6,6 +6,8 @@ import { testKey } from '../llm.js';
 import { fmtRel, fmtTime, download, bus } from '../util.js';
 import { canInstall, isInstalled, installApp } from '../pwa.js';
 
+const MODEL_PREFS = ['textModel', 'textEffort', 'ttsModel'];
+
 export function Settings() {
   const sync = useSync();
   const [, force] = useState(0);
@@ -25,6 +27,7 @@ export function Settings() {
     try { const r = await testKey(); setTest(`ok · ${r.ms} ms · "${r.text}"`); }
     catch (e) { setTest('✕ ' + e.message); }
   };
+  const resetModels = () => { MODEL_PREFS.forEach((k) => prefs.set(k, '')); setTest(null); force((n) => n + 1); };
   const connect = async () => { try { await sync.connect(); } catch (e) { bus.error(e); } };
   const importFile = (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -48,9 +51,15 @@ export function Settings() {
     <div class="f"><label>API key · stored in this browser only</label><input type="password" autocomplete="off" ...${bind('orKey')} /></div>
     <div class="g2">
       <div class="f"><label>text model</label><input placeholder=${DEFAULTS.textModel} ...${bind('textModel')} /></div>
+      <div class="f"><label>thinking effort<${Q} text="none works only for OpenAI models; Gemini and Claude always think a little." /></label>
+        <select ...${bind('textEffort')}>${['none', 'low', 'medium', 'high'].map((v) => html`<option key=${v} value=${v}>${v}</option>`)}</select></div>
       <div class="f"><label>audio model</label><input placeholder=${DEFAULTS.ttsModel} ...${bind('ttsModel')} /></div>
     </div>
-    <div class="row"><button onClick=${runTest} disabled=${!prefs.get('orKey')}>Test ⚡</button>${test && html`<span class="muted small">${test}</span>`}</div>
+    <div class="row">
+      <button onClick=${runTest} disabled=${!prefs.get('orKey')}>Test ⚡</button>${test && html`<span class="muted small">${test}</span>`}
+      <span class="spacer"></span>
+      <button class="ghost" disabled=${MODEL_PREFS.every((k) => prefs.get(k) === DEFAULTS[k])} onClick=${resetModels}>Reset to defaults</button>
+    </div>
 
     <h3>Google Drive</h3>
     <div class="f"><label>OAuth client ID<${Q} text=${`Google Cloud console → Google Auth Platform → Clients → Create client, type Web application, authorized JavaScript origin = ${location.origin}. Drive API must be enabled. Scope used: drive.file (only files this app creates).`} /></label>
