@@ -2,6 +2,10 @@ import { prefs } from './prefs.js';
 import { pcmToWav } from './util.js';
 
 const API = 'https://openrouter.ai/api/v1/chat/completions';
+const NO_RETRY = [401, 402, 403, 429];
+
+const httpError = (message, status) => Object.assign(new Error(message), { status });
+const retryable = (e, signal) => !signal?.aborted && !NO_RETRY.includes(e.status);
 
 async function call(body, signal) {
   const key = prefs.get('orKey');
@@ -12,7 +16,7 @@ async function call(body, signal) {
     body: JSON.stringify(body),
   });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok || data.error) throw new Error(data.error?.message || `OpenRouter ${r.status}`);
+  if (!r.ok || data.error) throw httpError(data.error?.message || `OpenRouter ${r.status}`, data.error?.code ?? r.status);
   return data;
 }
 
@@ -81,7 +85,7 @@ export async function generateCard(deck, front, signal) {
   try {
     data = await call({ ...base, response_format: { type: 'json_schema', json_schema: { name: 'card', strict: true, schema: schemaFor(deck) } } }, signal);
   } catch (e) {
-    if (signal?.aborted) throw e;
+    if (!retryable(e, signal)) throw e;
     data = await call({ ...base, response_format: { type: 'json_object' } }, signal);
   }
   return normalize(deck, front, parseContent(data.choices?.[0]?.message?.content));
@@ -111,7 +115,7 @@ async function tts(deck, text, signal) {
   const type = r.headers.get('content-type') || '';
   if (!r.ok || type.includes('json')) {
     const data = await r.json().catch(() => ({}));
-    throw new Error(data.error?.message || `TTS ${r.status}`);
+    throw httpError(data.error?.message || `TTS ${r.status}`, data.error?.code ?? r.status);
   }
   const bytes = new Uint8Array(await r.arrayBuffer());
   if (!bytes.length) throw new Error('model returned no audio');
@@ -122,7 +126,7 @@ async function tts(deck, text, signal) {
 
 export async function generateAudio(deck, text, signal) {
   try { return await tts(deck, text, signal); }
-  catch (e) { if (signal?.aborted) throw e; return tts(deck, text, signal); }
+  catch (e) { if (!retryable(e, signal)) throw e; return tts(deck, text, signal); }
 }
 
 export async function testKey() {

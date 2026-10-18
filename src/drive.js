@@ -15,7 +15,7 @@ class NeedSignIn extends Error { constructor() { super('sign in to Google to syn
 let meta = null;
 let heartbeat = null;
 let retryTimer = null, retries = 0;
-let busy = false, rerun = false;
+let busy = false, rerun = false, resync = false;
 const listeners = new Set();
 const emit = () => { for (const fn of listeners) fn(); };
 
@@ -309,7 +309,10 @@ async function push(files) {
         if (!blob) continue;
         const r = await upload(c.audio.key, blob, null, meta.audioFolderId);
         c.audio.driveId = r.id;
-        await store.saveCard(c, { silent: true });
+        const live = store.card(c.id);
+        if (live?.audio?.key !== c.audio.key) { await queueTrash(deckId, [r.id]); continue; }
+        live.audio.driveId = r.id;
+        await store.saveCard(live, { silent: true });
       }
       const r = await upload(name, jsonBlob({ deck, cards }), meta.files[name]?.id, meta.folderId);
       meta.files[name] = { id: r.id, modifiedTime: r.modifiedTime };
@@ -330,7 +333,10 @@ async function push(files) {
     setStatus(conflicts.length ? 'conflict' : 'synced');
   } finally {
     busy = false;
-    if (rerun) { rerun = false; pushSoon(); }
+    const again = resync && document.visibilityState === 'visible';
+    resync = false;
+    if (again) { rerun = false; fullSync(); }
+    else if (rerun) { rerun = false; pushSoon(); }
   }
 }
 
@@ -339,15 +345,19 @@ const pushSoon = debounce(() => push().catch(handleErr), 5000);
 async function onHide() {
   if (!sync.enabled || !holding()) return;
   stopHeartbeat();
-  if (store.dirty.size) { pushSoon.cancel(); await push().catch(handleErr); }
+  if (store.dirty.size) {
+    pushSoon.cancel();
+    await push().catch(handleErr);
+    if (document.visibilityState === 'visible') return;
+  }
   if (!holding() || store.dirty.size) return;
   await writeLock(true, true).catch(() => {});
-  setStatus('idle');
+  if (document.visibilityState !== 'visible') setStatus('idle');
 }
 
 async function fullSync() {
   if (!sync.enabled) return;
-  if (busy) { rerun = true; return; }
+  if (busy) { resync = true; return; }
   setStatus('connecting');
   try {
     const files = await listRoot();
