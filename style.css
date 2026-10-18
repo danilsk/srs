@@ -266,7 +266,7 @@ select.step.last{background:transparent;border-color:var(--line)}
   .modal:not(.narrow){max-width:none;min-height:100dvh;border:0;border-radius:0;padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
   @media(display-mode:standalone){.modal:not(.narrow){padding-top:calc(14px + env(safe-area-inset-top))}}
   .modal.narrow{margin:6vh 16px;align-self:flex-start}
-  .done .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .done .row{display:grid;grid-template-columns:1fr;gap:10px}
   .done .row a{display:block}
   .done .row button{width:100%;padding:10px 8px}
   .front-line{flex-wrap:wrap}
